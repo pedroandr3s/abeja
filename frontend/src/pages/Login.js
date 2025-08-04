@@ -3,15 +3,34 @@ import { useNavigate } from 'react-router-dom';
 import { useApi } from '../context/ApiContext';
 import './login.css';
 
+// Configuración de roles - debe coincidir con App.js
+const ROLE_CONFIG = {
+  ADM: {
+    name: 'Administrador',
+    defaultRoute: '/dashboard',
+    description: 'Gestión completa del sistema',
+    features: ['Gestión de usuarios', 'Todas las colmenas', 'Reportes globales', 'Configuración del sistema']
+  },
+  API: {
+    name: 'Apicultor',
+    defaultRoute: '/user-dashboard',
+    description: 'Gestión de colmenas propias',
+    features: ['Mis colmenas', 'Reportes personales', 'Monitoreo en tiempo real', 'Perfil personal']
+  }
+};
+
 const Login = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    email: '',
+    nombre: '',
+    apellido: '',
     password: ''
   });
   const [error, setError] = useState('');
   const [isLogging, setIsLogging] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('checking');
+  const [loginStep, setLoginStep] = useState('credentials'); // 'credentials', 'role-info', 'redirecting'
+  const [userInfo, setUserInfo] = useState(null);
   
   // Usar el ApiContext de forma segura
   let apiContext = null;
@@ -75,8 +94,8 @@ const Login = ({ onLoginSuccess }) => {
       return;
     }
     
-    if (!formData.email.trim() || !formData.password.trim()) {
-      setError('Nombre de usuario y contraseña son requeridos');
+    if (!formData.nombre.trim() || !formData.apellido.trim() || !formData.password.trim()) {
+      setError('Nombre, apellido y contraseña son requeridos');
       return;
     }
 
@@ -84,17 +103,21 @@ const Login = ({ onLoginSuccess }) => {
     setError('');
 
     try {
-      console.log('🔐 Intentando login...');
+      console.log('🔐 Intentando login con nombre y apellido...');
       
       let result;
+      
+      // Preparar los datos de login
+      const loginData = {
+        nombre: formData.nombre.trim(),
+        apellido: formData.apellido.trim(),
+        password: formData.password
+      };
       
       // Intentar usar ApiContext primero
       if (usuarios && usuarios.login) {
         console.log('📡 Usando ApiContext para login');
-        result = await usuarios.login({
-          email: formData.email.trim(),
-          password: formData.password
-        });
+        result = await usuarios.login(loginData);
       } else {
         // Fallback: petición directa
         console.log('📡 Usando fetch directo para login');
@@ -107,33 +130,42 @@ const Login = ({ onLoginSuccess }) => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            email: formData.email.trim(),
-            password: formData.password
-          }),
+          body: JSON.stringify(loginData),
         });
 
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          const errorData = await response.json();
+          throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
 
         result = await response.json();
       }
 
       // Manejar respuesta exitosa
-      if (result.data) {
+      if (result.data && result.data.usuario) {
+        const usuario = result.data.usuario;
+        const roleConfig = ROLE_CONFIG[usuario.rol];
+        
+        console.log('✅ Login exitoso:', usuario);
+        console.log('🎭 Rol detectado:', usuario.rol, '-', roleConfig?.name || 'Desconocido');
+        
+        // Verificar que el rol sea válido
+        if (!roleConfig) {
+          throw new Error(`Rol no válido: ${usuario.rol}. Contacte al administrador.`);
+        }
+        
+        // Guardar tokens
         localStorage.setItem('smartbee_token', result.data.token);
-        localStorage.setItem('smartbee_user', JSON.stringify(result.data.usuario));
+        localStorage.setItem('smartbee_user', JSON.stringify(usuario));
         
-        console.log('✅ Login exitoso:', result.data.usuario);
+        // Mostrar información del rol antes de redirigir
+        setUserInfo({ usuario, roleConfig });
+        setLoginStep('role-info');
         
-        // Llamar al callback de login exitoso
-        onLoginSuccess(result.data.usuario);
-        
-        // Redirigir a usuarios después del login
+        // Auto-redirigir después de 3 segundos o cuando el usuario haga clic
         setTimeout(() => {
-          navigate('/usuarios');
-        }, 100);
+          finalizeLogin(usuario, roleConfig);
+        }, 3000);
         
       } else {
         throw new Error(result.error || 'Error al iniciar sesión');
@@ -147,7 +179,7 @@ const Login = ({ onLoginSuccess }) => {
       if (error.response) {
         switch (error.response.status) {
           case 401:
-            errorMessage = 'Credenciales incorrectas. Verifique su usuario y contraseña.';
+            errorMessage = 'Credenciales incorrectas. Verifique su nombre, apellido y contraseña.';
             break;
           case 404:
             errorMessage = 'Servicio de login no disponible. Contacte al administrador.';
@@ -159,20 +191,41 @@ const Login = ({ onLoginSuccess }) => {
             errorMessage = error.response.data?.error || 'Error del servidor';
         }
       } else if (error.message.includes('401')) {
-        errorMessage = 'Credenciales incorrectas. Verifique su usuario y contraseña.';
+        errorMessage = 'Credenciales incorrectas. Verifique su nombre, apellido y contraseña.';
       } else if (error.message.includes('404')) {
         errorMessage = 'Servicio de login no disponible. Contacte al administrador.';
       } else if (error.message.includes('500')) {
         errorMessage = 'Error interno del servidor. Intente más tarde.';
       } else if (error.message.includes('Network Error') || error.message.includes('Failed to fetch')) {
         errorMessage = 'Error de conexión. Verifique su conexión a internet.';
+      } else if (error.message.includes('Rol no válido')) {
+        errorMessage = error.message;
       } else if (error.message) {
         errorMessage = error.message;
       }
       
       setError(errorMessage);
+      setLoginStep('credentials');
     } finally {
       setIsLogging(false);
+    }
+  };
+
+  const finalizeLogin = (usuario, roleConfig) => {
+    setLoginStep('redirecting');
+    
+    // Llamar al callback de login exitoso
+    onLoginSuccess(usuario);
+    
+    // Redirigir a la ruta por defecto del rol
+    setTimeout(() => {
+      navigate(roleConfig.defaultRoute);
+    }, 100);
+  };
+
+  const handleContinue = () => {
+    if (userInfo) {
+      finalizeLogin(userInfo.usuario, userInfo.roleConfig);
     }
   };
 
@@ -200,6 +253,94 @@ const Login = ({ onLoginSuccess }) => {
 
   const colors = getConnectionColor();
 
+  // Renderizar paso de información de rol
+  if (loginStep === 'role-info' && userInfo) {
+    const { usuario, roleConfig } = userInfo;
+    
+    return (
+      <div className="login-container">
+        <div className="login-card">
+          <div className="login-form-panel" style={{ width: '100%' }}>
+            <div className="login-form-container">
+              <div className="text-center mb-6">
+                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                  <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Bienvenido, {usuario.nombre} {usuario.apellido}!</h2>
+                <p className="text-gray-600">Login exitoso como <strong>{roleConfig.name}</strong></p>
+                {usuario.comuna && (
+                  <p className="text-sm text-gray-500">Ubicación: {usuario.comuna}</p>
+                )}
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                <h3 className="font-semibold text-gray-800 mb-2">Tu perfil de acceso:</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <span className="font-medium mr-2">Rol:</span>
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                      {roleConfig.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    <span className="font-medium mr-2">Descripción:</span>
+                    <span>{roleConfig.description}</span>
+                  </div>
+                  <div className="flex items-center text-sm text-gray-600">
+                    <span className="font-medium mr-2">ID:</span>
+                    <span className="font-mono text-xs bg-gray-200 px-2 py-1 rounded">{usuario.id}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                <h4 className="font-medium text-blue-900 mb-3">Funcionalidades disponibles:</h4>
+                <ul className="space-y-2">
+                  {roleConfig.features.map((feature, index) => (
+                    <li key={index} className="flex items-center text-sm text-blue-800">
+                      <div className="w-2 h-2 bg-blue-400 rounded-full mr-3"></div>
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <button
+                onClick={handleContinue}
+                className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-medium py-3 px-4 rounded-lg transition duration-200"
+              >
+                Continuar al Sistema
+              </button>
+
+              <div className="text-center mt-4">
+                <p className="text-xs text-gray-500">
+                  Redirigiendo automáticamente en unos segundos...
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Renderizar paso de redirección
+  if (loginStep === 'redirecting') {
+    return (
+      <div className="login-container">
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Cargando tu workspace...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Renderizar formulario de login por defecto
   return (
     <div className="login-container">
       <div className="login-card">
@@ -227,6 +368,21 @@ const Login = ({ onLoginSuccess }) => {
                 <span>Control de sensores IoT</span>
               </div>
             </div>
+
+            {/* Información de roles disponibles */}
+            <div className="mt-8 p-4 bg-white bg-opacity-10 rounded-lg">
+              <h3 className="text-white text-sm font-medium mb-3">Roles del Sistema:</h3>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center text-white text-opacity-90">
+                  <span className="w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
+                  <strong>Administrador:</strong> Gestión completa
+                </div>
+                <div className="flex items-center text-white text-opacity-90">
+                  <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+                  <strong>Apicultor:</strong> Gestión personal
+                </div>
+              </div>
+            </div>
           </div>
           
           <div className="login-decoration-1"></div>
@@ -237,7 +393,7 @@ const Login = ({ onLoginSuccess }) => {
           <div className="login-form-container">
             <div className="login-header">
               <h2 className="login-welcome-title">Bienvenido</h2>
-              <p className="login-welcome-subtitle">Ingresa tus credenciales para acceder</p>
+              <p className="login-welcome-subtitle">Ingresa tu nombre, apellido y contraseña</p>
             </div>
 
             {/* Estado de conexión */}
@@ -279,19 +435,36 @@ const Login = ({ onLoginSuccess }) => {
 
             <form onSubmit={handleSubmit} className="login-form">
               <div className="login-form-group">
-                <label htmlFor="email" className="login-form-label">
-                  Nombre de Usuario
+                <label htmlFor="nombre" className="login-form-label">
+                  Nombre
                 </label>
                 <input
                   type="text"
-                  id="email"
-                  name="email"
-                  value={formData.email}
+                  id="nombre"
+                  name="nombre"
+                  value={formData.nombre}
                   onChange={handleInputChange}
                   className="login-form-input"
-                  placeholder="Ingresa tu nombre de usuario"
+                  placeholder="Ingresa tu nombre"
                   disabled={isLogging || connectionStatus !== 'connected'}
-                  autoComplete="username"
+                  autoComplete="given-name"
+                />
+              </div>
+
+              <div className="login-form-group">
+                <label htmlFor="apellido" className="login-form-label">
+                  Apellido
+                </label>
+                <input
+                  type="text"
+                  id="apellido"
+                  name="apellido"
+                  value={formData.apellido}
+                  onChange={handleInputChange}
+                  className="login-form-input"
+                  placeholder="Ingresa tu apellido"
+                  disabled={isLogging || connectionStatus !== 'connected'}
+                  autoComplete="family-name"
                 />
               </div>
 
@@ -320,7 +493,7 @@ const Login = ({ onLoginSuccess }) => {
                 {isLogging ? (
                   <>
                     <div className="login-spinner"></div>
-                    Ingresando...
+                    Verificando credenciales...
                   </>
                 ) : (
                   'Ingresar'
@@ -341,7 +514,10 @@ const Login = ({ onLoginSuccess }) => {
 
             <div className="login-footer">
               <p className="login-footer-text">
-                Nombre:Pedro Contraseña:admin123
+                {/* Credenciales de prueba por rol */}
+                <strong>Para ingresar:</strong><br/>
+                Use su nombre y apellido registrados en el sistema<br/>
+                junto con su contraseña personal
               </p>
             </div>
           </div>

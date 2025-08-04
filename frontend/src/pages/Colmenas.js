@@ -27,6 +27,8 @@ const Colmenas = () => {
   
   const [formData, setFormData] = useState({
     descripcion: '',
+    latitud: '',
+    longitud: '',
     dueno: ''
   });
   const [formErrors, setFormErrors] = useState({});
@@ -239,32 +241,6 @@ const Colmenas = () => {
     }
   }, [usuariosList]);
 
-  // Función para obtener ubicación de una colmena basada en sus nodos
-  const getUbicacionColmena = (colmena) => {
-    // Si la colmena tiene nodos asociados con ubicación
-    if (colmena.nodos && colmena.nodos.length > 0) {
-      const nodoConUbicacion = colmena.nodos.find(nodo => 
-        nodo.ubicacion && (nodo.ubicacion.comuna || nodo.ubicacion.descripcion)
-      );
-      
-      if (nodoConUbicacion && nodoConUbicacion.ubicacion) {
-        const ubicacion = nodoConUbicacion.ubicacion;
-        return {
-          comuna: ubicacion.comuna,
-          descripcion: ubicacion.descripcion,
-          latitud: ubicacion.latitud,
-          longitud: ubicacion.longitud
-        };
-      }
-    }
-    
-    // Si no tiene nodos con ubicación, buscar en propiedades directas (fallback)
-    if (colmena.ubicacion) {
-      return colmena.ubicacion;
-    }
-    
-    return null;
-  };
   const getEstadisticasFiltros = () => {
     const total = colmenasList.length;
     const filtradas = colmenasFiltradas.length;
@@ -346,12 +322,16 @@ const Colmenas = () => {
       setEditingColmena(colmena);
       setFormData({
         descripcion: colmena.descripcion || '',
+        latitud: colmena.latitud || '',
+        longitud: colmena.longitud || '',
         dueno: colmena.dueno || ''
       });
     } else {
       setEditingColmena(null);
       setFormData({
         descripcion: '',
+        latitud: '',
+        longitud: '',
         dueno: ''
       });
     }
@@ -364,6 +344,8 @@ const Colmenas = () => {
     setEditingColmena(null);
     setFormData({
       descripcion: '',
+      latitud: '',
+      longitud: '',
       dueno: ''
     });
     setFormErrors({});
@@ -393,6 +375,26 @@ const Colmenas = () => {
       errors.dueno = 'El dueño es requerido';
     }
 
+    // Validar coordenadas si se proporcionan
+    if (formData.latitud) {
+      const lat = parseFloat(formData.latitud);
+      if (isNaN(lat) || lat < -90 || lat > 90) {
+        errors.latitud = 'La latitud debe ser un número entre -90 y 90';
+      }
+    }
+
+    if (formData.longitud) {
+      const lng = parseFloat(formData.longitud);
+      if (isNaN(lng) || lng < -180 || lng > 180) {
+        errors.longitud = 'La longitud debe ser un número entre -180 y 180';
+      }
+    }
+
+    // Si se proporciona una coordenada, la otra también debe proporcionarse
+    if ((formData.latitud && !formData.longitud) || (!formData.latitud && formData.longitud)) {
+      errors.coordenadas = 'Si proporciona coordenadas, debe incluir tanto latitud como longitud';
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -414,6 +416,12 @@ const Colmenas = () => {
         dueno: formData.dueno
       };
 
+      // Solo incluir coordenadas si ambas están presentes
+      if (formData.latitud && formData.longitud) {
+        colmenaData.latitud = parseFloat(formData.latitud);
+        colmenaData.longitud = parseFloat(formData.longitud);
+      }
+
       if (editingColmena) {
         console.log('✏️ Actualizando colmena:', editingColmena.id);
         await colmenas.update(editingColmena.id, colmenaData);
@@ -423,6 +431,15 @@ const Colmenas = () => {
         });
       } else {
         console.log('➕ Creando nueva colmena');
+        // Para crear, las coordenadas son obligatorias según el esquema
+        if (!colmenaData.latitud || !colmenaData.longitud) {
+          setFormErrors({
+            coordenadas: 'Las coordenadas son obligatorias para crear una nueva colmena'
+          });
+          setIsSubmitting(false);
+          return;
+        }
+        
         const nuevaColmena = await colmenas.create(colmenaData);
         setAlertMessage({
           type: 'success',
@@ -502,6 +519,11 @@ const Colmenas = () => {
     return usuario ? `${usuario.nombre} ${usuario.apellido}` : 'Sin asignar';
   };
 
+  const getDuenoComuna = (duenoId) => {
+    const usuario = usuariosList.find(u => u.id === duenoId);
+    return usuario ? usuario.comuna : null;
+  };
+
   const formatearFecha = (fecha) => {
     if (!fecha) return 'No disponible';
     return new Date(fecha).toLocaleString('es-CL', {
@@ -511,6 +533,11 @@ const Colmenas = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const formatearCoordenadas = (lat, lng) => {
+    if (!lat || !lng) return null;
+    return `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`;
   };
 
   const canEditColmena = (colmena) => {
@@ -561,6 +588,11 @@ const Colmenas = () => {
             }}>
               Sesión activa: <strong>{currentUser.nombre} {currentUser.apellido}</strong> 
               ({currentUser.rol_nombre || currentUser.rol})
+              {currentUser.comuna && (
+                <span style={{ marginLeft: '0.5rem' }}>
+                  📍 {currentUser.comuna}
+                </span>
+              )}
             </p>
           )}
         </div>
@@ -597,7 +629,7 @@ const Colmenas = () => {
                 fontSize: '0.875rem'
               }}
             >
-              ← Menú Principal
+              ← Volver a Usuarios
             </button>
           )}
           <button 
@@ -652,6 +684,7 @@ const Colmenas = () => {
                 return (
                   <option key={usuario.id} value={usuario.id}>
                     {usuario.nombre} {usuario.apellido} ({colmenasDelUsuario} colmenas)
+                    {usuario.comuna && ` - ${usuario.comuna}`}
                     {usuario.rol === 'ADM' ? ' - Administrador' : ''}
                   </option>
                 );
@@ -757,6 +790,7 @@ const Colmenas = () => {
                   <th>Descripción</th>
                   <th>Dueño</th>
                   <th>Ubicación</th>
+                  <th>Coordenadas</th>
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
@@ -767,9 +801,10 @@ const Colmenas = () => {
                     <td>
                       <span style={{ 
                         fontWeight: '600', 
-                        color: '#374151' 
+                        color: '#374151',
+                        fontFamily: 'monospace'
                       }}>
-                        #{colmena.id}
+                        {colmena.id}
                       </span>
                     </td>
                     <td>
@@ -789,7 +824,7 @@ const Colmenas = () => {
                       <div style={{ fontWeight: '500' }}>
                         {getDuenoName(colmena.dueno)}
                       </div>
-                      {/* Indicador de rol del dueño */}
+                      {/* Indicador de rol del dueño y comuna */}
                       {(() => {
                         const usuario = usuariosList.find(u => u.id === colmena.dueno);
                         if (usuario) {
@@ -799,7 +834,12 @@ const Colmenas = () => {
                               color: usuario.rol === 'ADM' ? '#dc2626' : '#059669',
                               fontWeight: '500'
                             }}>
-                              {usuario.rol === 'ADM' ? 'Administrador' : 'Usuario'}
+                              {usuario.rol === 'ADM' ? 'Administrador' : 'Apicultor'}
+                              {usuario.comuna && (
+                                <span style={{ color: '#6b7280', marginLeft: '0.25rem' }}>
+                                  - {usuario.comuna}
+                                </span>
+                              )}
                               {filtroDesdeUsuarios && filtroDesdeUsuarios.id === usuario.id && 
                                 <span style={{ marginLeft: '0.25rem' }}>🎯</span>
                               }
@@ -811,29 +851,49 @@ const Colmenas = () => {
                     </td>
                     <td>
                       {(() => {
-                        const ubicacion = getUbicacionColmena(colmena);
-                        
-                        if (ubicacion && (ubicacion.comuna || ubicacion.descripcion)) {
+                        const comuna = getDuenoComuna(colmena.dueno);
+                        if (comuna) {
                           return (
                             <div>
                               <div style={{ fontWeight: '500' }}>
-                                {ubicacion.comuna && ubicacion.descripcion 
-                                  ? `${ubicacion.comuna} - ${ubicacion.descripcion}`
-                                  : ubicacion.comuna || ubicacion.descripcion
-                                }
+                                {comuna}
                               </div>
-                              {ubicacion.latitud && ubicacion.longitud && (
-                                <div style={{ 
-                                  fontSize: '0.75rem', 
-                                  color: '#6b7280' 
-                                }}>
-                                  {parseFloat(ubicacion.latitud).toFixed(4)}, {parseFloat(ubicacion.longitud).toFixed(4)}
-                                </div>
-                              )}
+                              <div style={{ 
+                                fontSize: '0.75rem', 
+                                color: '#6b7280' 
+                              }}>
+                                Comuna del dueño
+                              </div>
                             </div>
                           );
                         } else {
                           return <span style={{ color: '#6b7280' }}>Sin ubicación</span>;
+                        }
+                      })()}
+                    </td>
+                    <td>
+                      {(() => {
+                        const coordenadas = formatearCoordenadas(colmena.latitud, colmena.longitud);
+                        if (coordenadas) {
+                          return (
+                            <div>
+                              <div style={{ 
+                                fontWeight: '500',
+                                fontFamily: 'monospace',
+                                fontSize: '0.875rem'
+                              }}>
+                                {coordenadas}
+                              </div>
+                              <div style={{ 
+                                fontSize: '0.75rem', 
+                                color: '#6b7280' 
+                              }}>
+                                Lat, Lng
+                              </div>
+                            </div>
+                          );
+                        } else {
+                          return <span style={{ color: '#6b7280' }}>Sin coordenadas</span>;
                         }
                       })()}
                     </td>
@@ -886,7 +946,7 @@ const Colmenas = () => {
         )}
       </Card>
 
-      {/* Modal para crear/editar colmena - Formulario original del administrador */}
+      {/* Modal para crear/editar colmena */}
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
@@ -922,6 +982,7 @@ const Colmenas = () => {
                 {usuariosList.map((usuario) => (
                   <option key={usuario.id} value={usuario.id}>
                     {usuario.nombre} {usuario.apellido}
+                    {usuario.comuna && ` - ${usuario.comuna}`}
                     {usuario.rol === 'ADM' ? ' (Administrador)' : ''}
                   </option>
                 ))}
@@ -931,6 +992,61 @@ const Colmenas = () => {
               )}
             </div>
           </div>
+
+          {/* Sección de coordenadas */}
+          <div className="grid grid-2">
+            <div className="form-group">
+              <label className="form-label">
+                Latitud {!editingColmena && '*'}
+                <span style={{ fontSize: '0.75rem', color: '#6b7280', marginLeft: '0.5rem' }}>
+                  (-90 a 90)
+                </span>
+              </label>
+              <input
+                type="number"
+                step="any"
+                className={`form-input ${formErrors.latitud ? 'error' : ''}`}
+                value={formData.latitud}
+                onChange={(e) => setFormData({...formData, latitud: e.target.value})}
+                placeholder="Ej: -36.60091567"
+                disabled={isSubmitting}
+                min="-90"
+                max="90"
+              />
+              {formErrors.latitud && (
+                <div className="error-message">{formErrors.latitud}</div>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                Longitud {!editingColmena && '*'}
+                <span style={{ fontSize: '0.75rem', color: '#6b7280', marginLeft: '0.5rem' }}>
+                  (-180 a 180)
+                </span>
+              </label>
+              <input
+                type="number"
+                step="any"
+                className={`form-input ${formErrors.longitud ? 'error' : ''}`}
+                value={formData.longitud}
+                onChange={(e) => setFormData({...formData, longitud: e.target.value})}
+                placeholder="Ej: -72.10640197"
+                disabled={isSubmitting}
+                min="-180"
+                max="180"
+              />
+              {formErrors.longitud && (
+                <div className="error-message">{formErrors.longitud}</div>
+              )}
+            </div>
+          </div>
+
+          {formErrors.coordenadas && (
+            <div className="error-message" style={{ marginTop: '0.5rem' }}>
+              {formErrors.coordenadas}
+            </div>
+          )}
 
           <div style={{
             marginTop: '1.5rem',
@@ -942,13 +1058,15 @@ const Colmenas = () => {
             color: '#0c4a6e'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-              <span style={{ fontSize: '1rem' }}>ℹ️</span>
+              <span style={{ fontSize: '1rem' }}>📍</span>
               <strong>Información sobre ubicaciones</strong>
             </div>
-            <p style={{ margin: 0 }}>
-              Las ubicaciones de las colmenas se obtienen automáticamente desde los nodos IoT asociados. 
-              Para establecer ubicaciones, gestiona los nodos desde la sección correspondiente.
-            </p>
+            <ul style={{ margin: '0.5rem 0 0 1.5rem', padding: 0 }}>
+              <li>Las coordenadas son obligatorias para nuevas colmenas</li>
+              <li>Para colmenas existentes, las coordenadas son opcionales</li>
+              <li>Las coordenadas deben estar en formato decimal (ej: -36.123456)</li>
+              <li>Chile está entre latitudes -17° y -56°, longitudes -66° y -75°</li>
+            </ul>
           </div>
 
           <div className="flex flex-gap flex-between mt-6">
@@ -978,7 +1096,7 @@ const Colmenas = () => {
       <Modal
         isOpen={isDetailModalOpen}
         onClose={handleCloseDetailModal}
-        title={`Detalle de Colmena #${selectedColmena?.id}`}
+        title={`Detalle de Colmena ${selectedColmena?.id}`}
         size="xl"
       >
         {colmenaDetail ? (
@@ -986,6 +1104,12 @@ const Colmenas = () => {
             <div className="grid grid-2 mb-6">
               <Card title="Información General">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div>
+                    <strong>ID:</strong>
+                    <p style={{ margin: '0.25rem 0 0', color: '#6b7280', fontFamily: 'monospace' }}>
+                      {colmenaDetail.id}
+                    </p>
+                  </div>
                   <div>
                     <strong>Descripción:</strong>
                     <p style={{ margin: '0.25rem 0 0', color: '#6b7280' }}>
@@ -1000,45 +1124,36 @@ const Colmenas = () => {
                         const usuario = usuariosList.find(u => u.id === colmenaDetail.dueno);
                         if (usuario) {
                           return (
-                            <span style={{ 
-                              marginLeft: '0.5rem',
-                              fontSize: '0.75rem', 
-                              color: usuario.rol === 'ADM' ? '#dc2626' : '#059669',
-                              fontWeight: '500'
-                            }}>
-                              ({usuario.rol === 'ADM' ? 'Administrador' : 'Usuario'})
-                            </span>
+                            <>
+                              <span style={{ 
+                                marginLeft: '0.5rem',
+                                fontSize: '0.75rem', 
+                                color: usuario.rol === 'ADM' ? '#dc2626' : '#059669',
+                                fontWeight: '500'
+                              }}>
+                                ({usuario.rol === 'ADM' ? 'Administrador' : 'Apicultor'})
+                              </span>
+                              {usuario.comuna && (
+                                <><br />
+                                <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                                  📍 {usuario.comuna}
+                                </span></>
+                              )}
+                            </>
                           );
                         }
                         return null;
                       })()}
                     </p>
                   </div>
-                  {(() => {
-                    const ubicacion = getUbicacionColmena(colmenaDetail);
-                    if (ubicacion && (ubicacion.comuna || ubicacion.descripcion)) {
-                      return (
-                        <div>
-                          <strong>Ubicación:</strong>
-                          <p style={{ margin: '0.25rem 0 0', color: '#6b7280' }}>
-                            {ubicacion.comuna && ubicacion.descripcion 
-                              ? `${ubicacion.comuna} - ${ubicacion.descripcion}`
-                              : ubicacion.comuna || ubicacion.descripcion
-                            }
-                            {ubicacion.latitud && ubicacion.longitud && (
-                              <>
-                                <br />
-                                <span style={{ fontSize: '0.875rem' }}>
-                                  {parseFloat(ubicacion.latitud).toFixed(6)}, {parseFloat(ubicacion.longitud).toFixed(6)}
-                                </span>
-                              </>
-                            )}
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
+                  {colmenaDetail.latitud && colmenaDetail.longitud && (
+                    <div>
+                      <strong>Coordenadas:</strong>
+                      <p style={{ margin: '0.25rem 0 0', color: '#6b7280', fontFamily: 'monospace' }}>
+                        {formatearCoordenadas(colmenaDetail.latitud, colmenaDetail.longitud)}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </Card>
 
@@ -1062,6 +1177,12 @@ const Colmenas = () => {
                       <span style={{ fontSize: '0.75rem' }}>
                         ({currentUser.rol_nombre || currentUser.rol})
                       </span>
+                      {currentUser.comuna && (
+                        <><br />
+                        <span style={{ fontSize: '0.75rem' }}>
+                          📍 {currentUser.comuna}
+                        </span></>
+                      )}
                     </div>
                   )}
                   {filtroDesdeUsuarios && (
@@ -1093,7 +1214,7 @@ const Colmenas = () => {
                     <tbody>
                       {colmenaDetail.nodos.map((nodo) => (
                         <tr key={nodo.id}>
-                          <td>#{nodo.id}</td>
+                          <td style={{ fontFamily: 'monospace' }}>{nodo.id}</td>
                           <td>{nodo.descripcion}</td>
                           <td>
                             <span className="badge badge-info">
@@ -1126,6 +1247,10 @@ const Colmenas = () => {
                   marginTop: '1rem'
                 }}>
                   Acceso: {currentUser?.rol_nombre || currentUser?.rol}
+                  {currentUser?.comuna && (
+                    <><br />
+                    Ubicación: {currentUser.comuna}</>
+                  )}
                 </div>
                 {filtroDesdeUsuarios && (
                   <div style={{ 

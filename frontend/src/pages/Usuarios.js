@@ -16,11 +16,13 @@ const Usuarios = () => {
   const [alertMessage, setAlertMessage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    id: '', // Agregado para nuevos usuarios
+    id: '',
     nombre: '',
     apellido: '',
+    comuna: '',
     clave: '',
-    rol: ''
+    rol: '',
+    activo: true
   });
   const [formErrors, setFormErrors] = useState({});
 
@@ -51,16 +53,16 @@ const Usuarios = () => {
     }
   };
 
+  // Nota: El hash de contraseñas se hace en el backend por seguridad
+
   // Función para navegar a colmenas con filtro de usuario
   const handleNavigateToColmenas = (usuario) => {
     console.log('🚀 Navegando a colmenas con filtro de usuario:', usuario);
     
-    // Guardar el filtro en localStorage para que persista
     localStorage.setItem('colmenas_filtro_dueno', usuario.id);
     localStorage.setItem('colmenas_filtro_nombre', `${usuario.nombre} ${usuario.apellido}`);
     localStorage.setItem('colmenas_filtro_aplicar', 'true');
     
-    // Navegar inmediatamente a la página de colmenas usando React Router
     navigate('/colmenas');
   };
 
@@ -88,8 +90,10 @@ const Usuarios = () => {
         id: user.id || '',
         nombre: user.nombre || '',
         apellido: user.apellido || '',
+        comuna: user.comuna || '',
         clave: '', 
-        rol: user.rol || '' 
+        rol: user.rol || '',
+        activo: user.activo !== undefined ? Boolean(user.activo) : true
       });
     } else {
       setEditingUser(null);
@@ -97,8 +101,10 @@ const Usuarios = () => {
         id: '',
         nombre: '',
         apellido: '',
+        comuna: '',
         clave: '',
-        rol: ''
+        rol: '',
+        activo: true
       });
     }
     setFormErrors({});
@@ -112,8 +118,10 @@ const Usuarios = () => {
       id: '',
       nombre: '',
       apellido: '',
+      comuna: '',
       clave: '',
-      rol: ''
+      rol: '',
+      activo: true
     });
     setFormErrors({});
     setIsSubmitting(false);
@@ -139,9 +147,18 @@ const Usuarios = () => {
     } else if (formData.apellido.trim().length > 100) {
       errors.apellido = 'El apellido no puede exceder 100 caracteres';
     }
+
+    if (!formData.comuna || !formData.comuna.trim()) {
+      errors.comuna = 'La comuna es requerida';
+    } else if (formData.comuna.trim().length > 100) {
+      errors.comuna = 'La comuna no puede exceder 100 caracteres';
+    }
     
+    // Validación de contraseña mejorada
     if (!editingUser && (!formData.clave || !formData.clave.trim())) {
       errors.clave = 'La clave es requerida';
+    } else if (formData.clave && formData.clave.trim().length < 6) {
+      errors.clave = 'La clave debe tener al menos 6 caracteres';
     } else if (formData.clave && formData.clave.trim().length > 64) {
       errors.clave = 'La clave no puede exceder 64 caracteres';
     }
@@ -169,18 +186,25 @@ const Usuarios = () => {
       const dataToSend = {
         nombre: formData.nombre.trim(),
         apellido: formData.apellido.trim(),
-        rol: formData.rol.trim()
+        comuna: formData.comuna.trim(),
+        rol: formData.rol.trim(),
+        activo: formData.activo ? 1 : 0
       };
       
       if (!editingUser) {
         dataToSend.id = formData.id.trim();
       }
       
+      // Enviar contraseña en texto plano - el backend se encarga del hash
       if (formData.clave && formData.clave.trim()) {
         dataToSend.clave = formData.clave.trim();
+        console.log('🔐 Enviando contraseña al backend para encriptar');
       }
       
-      console.log('📤 Datos a enviar:', dataToSend);
+      console.log('📤 Datos a enviar:', {
+        ...dataToSend,
+        clave: dataToSend.clave ? '[CONTRASEÑA ENVIADA AL BACKEND]' : undefined
+      });
 
       if (editingUser) {
         console.log('✏️ Actualizando usuario:', editingUser.id);
@@ -188,7 +212,7 @@ const Usuarios = () => {
         console.log('✅ Usuario actualizado:', result);
         setAlertMessage({
           type: 'success',
-          message: 'Usuario actualizado correctamente'
+          message: 'Usuario actualizado correctamente. La contraseña se encriptó de forma segura en el servidor.'
         });
       } else {
         console.log('➕ Creando nuevo usuario');
@@ -196,7 +220,7 @@ const Usuarios = () => {
         console.log('✅ Usuario creado:', result);
         setAlertMessage({
           type: 'success',
-          message: 'Usuario creado correctamente'
+          message: 'Usuario creado correctamente. La contraseña se encriptó de forma segura en el servidor.'
         });
       }
       
@@ -268,13 +292,13 @@ const Usuarios = () => {
     
     switch (rolKey) {
       case 'ADM':
-        return 'badge-danger';  
+        return 'badge-danger';
       case 'API':
-        return 'badge-success';  
+        return 'badge-success';
       case 'USR':
-        return 'badge-info';     
+        return 'badge-info';
       default:
-        return 'badge-secondary'; 
+        return 'badge-secondary';
     }
   };
 
@@ -333,6 +357,7 @@ const Usuarios = () => {
                 <tr>
                   <th>ID</th>
                   <th>Nombre Completo</th>
+                  <th>Comuna</th>
                   <th>Rol</th>
                   <th>Estado</th>
                   <th>Acciones</th>
@@ -385,6 +410,15 @@ const Usuarios = () => {
                             ID: {usuario.id}
                           </div>
                         </div>
+                      </td>
+                      <td>
+                        <span style={{ 
+                          fontSize: '0.875rem',
+                          color: '#374151',
+                          fontWeight: '500'
+                        }}>
+                          {usuario.comuna}
+                        </span>
                       </td>
                       <td>
                         <span className={`badge ${getRoleBadgeClass(usuario)}`}>
@@ -494,21 +528,51 @@ const Usuarios = () => {
           </div>
 
           <div className="form-group">
+            <label className="form-label">Comuna * (máx. 100 caracteres)</label>
+            <input
+              type="text"
+              className={`form-input ${formErrors.comuna ? 'error' : ''}`}
+              value={formData.comuna}
+              onChange={(e) => setFormData({...formData, comuna: e.target.value})}
+              placeholder="Ingresa la comuna"
+              maxLength="100"
+              disabled={isSubmitting}
+            />
+            {formErrors.comuna && (
+              <div className="error-message">{formErrors.comuna}</div>
+            )}
+          </div>
+
+          <div className="form-group">
             <label className="form-label">
-              Clave {editingUser ? '(dejar vacío para mantener actual)' : '*'} (máx. 64 caracteres)
+              🔐 Contraseña Segura {editingUser ? '(dejar vacío para mantener actual)' : '*'} 
+              <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                {' '}(mín. 6 caracteres, máx. 64)
+              </span>
             </label>
             <input
               type="password"
               className={`form-input ${formErrors.clave ? 'error' : ''}`}
               value={formData.clave}
               onChange={(e) => setFormData({...formData, clave: e.target.value})}
-              placeholder={editingUser ? "Nueva clave (opcional)" : "Ingresa la clave"}
+              placeholder={editingUser ? "Nueva contraseña (opcional)" : "Ingresa una contraseña segura"}
               maxLength="64"
               disabled={isSubmitting}
             />
             {formErrors.clave && (
               <div className="error-message">{formErrors.clave}</div>
             )}
+            <div style={{ 
+              fontSize: '0.75rem', 
+              color: '#059669', 
+              marginTop: '4px',
+              padding: '8px',
+              backgroundColor: '#ecfdf5',
+              borderRadius: '4px',
+              border: '1px solid #a7f3d0'
+            }}>
+              🔒 Las contraseñas se encriptan automáticamente con Bcrypt en el servidor (nivel 12)
+            </div>
           </div>
 
           <div className="form-group">
@@ -537,6 +601,26 @@ const Usuarios = () => {
                 Rol seleccionado: {formData.rol} - {getRolNameFromKey(formData.rol)}
               </div>
             )}
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Estado</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="checkbox"
+                id="activo"
+                checked={formData.activo}
+                onChange={(e) => setFormData({...formData, activo: e.target.checked})}
+                disabled={isSubmitting}
+                style={{ width: 'auto' }}
+              />
+              <label htmlFor="activo" style={{ marginBottom: 0, fontSize: '0.875rem' }}>
+                Usuario activo
+              </label>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '4px' }}>
+              Los usuarios inactivos no podrán acceder al sistema
+            </div>
           </div>
 
           <div className="flex flex-gap flex-between mt-6">
