@@ -30,7 +30,7 @@ const DashboardComplete = () => {
     if (currentUser) {
       const interval = setInterval(() => {
         loadSensorData();
-      }, 30000);
+      }, 5000);
       return () => clearInterval(interval);
     }
   }, [currentUser]);
