@@ -41,6 +41,41 @@ const ROLE_CONFIG = {
   }
 };
 
+// Función para obtener el tema del sidebar basado en el rol
+const getSidebarTheme = (userRole) => {
+  if (userRole === 'API') {
+    // Tema oscuro para apicultores (mismos tonos que el modo oscuro del dashboard)
+    return {
+      background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
+      cardBackground: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+      textPrimary: '#f8fafc',
+      textSecondary: '#e2e8f0',
+      textMuted: '#94a3b8',
+      border: '1px solid rgba(71, 85, 105, 0.3)',
+      shadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
+      buttonActive: 'linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%)',
+      buttonHover: 'linear-gradient(135deg, #475569 0%, #64748b 100%)',
+      iconColor: '#f8fafc',
+      accentColor: '#3b82f6'
+    };
+  } else {
+    // Tema claro para administradores
+    return {
+      background: 'linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%)',
+      cardBackground: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+      textPrimary: '#1f2937',
+      textSecondary: '#374151',
+      textMuted: '#6b7280',
+      border: '1px solid rgba(226, 232, 240, 0.8)',
+      shadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+      buttonActive: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+      buttonHover: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+      iconColor: '#374151',
+      accentColor: '#3b82f6'
+    };
+  }
+};
+
 // Componente wrapper para la aplicación autenticada
 const AuthenticatedApp = ({ currentUser, onLogout }) => {
   const navigate = useNavigate();
@@ -49,6 +84,7 @@ const AuthenticatedApp = ({ currentUser, onLogout }) => {
   // Obtener configuración basada en el rol del usuario
   const userRole = currentUser?.rol || 'API';
   const roleConfig = ROLE_CONFIG[userRole] || ROLE_CONFIG.API;
+  const sidebarTheme = getSidebarTheme(userRole);
 
   // Función para cambiar página y actualizar URL
   const setCurrentPage = (page) => {
@@ -83,6 +119,8 @@ const AuthenticatedApp = ({ currentUser, onLogout }) => {
         setCurrentPage={setCurrentPage}
         currentUser={currentUser}
         roleConfig={roleConfig}
+        theme={sidebarTheme}
+        isDarkMode={userRole === 'API'} // Solo los apicultores tienen tema oscuro
       />
       <div className="main-content">
         <Navbar 
@@ -168,6 +206,7 @@ function App() {
             setIsAuthenticated(true);
             console.log('✅ Sesión existente encontrada:', user);
             console.log('🎭 Rol del usuario:', user.rol, '-', ROLE_CONFIG[user.rol].name);
+            console.log('🎨 Tema sidebar:', user.rol === 'API' ? 'Oscuro (Apicultor)' : 'Claro (Administrador)');
           } else {
             console.warn('⚠️ Usuario con rol inválido:', user.rol);
             // Mantener como autenticado pero con rol inválido para mostrar mensaje
@@ -194,8 +233,11 @@ function App() {
     setIsAuthenticated(true);
     
     const roleConfig = ROLE_CONFIG[userData.rol];
+    const sidebarTheme = getSidebarTheme(userData.rol);
+    
     console.log('🚀 Usuario autenticado:', userData);
     console.log('🎭 Rol:', userData.rol, '-', roleConfig?.name || 'Desconocido');
+    console.log('🎨 Tema sidebar aplicado:', userData.rol === 'API' ? 'Oscuro' : 'Claro');
     
     if (roleConfig) {
       console.log('📱 Redirigiendo a:', roleConfig.defaultRoute);
