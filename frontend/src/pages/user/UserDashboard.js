@@ -32,14 +32,8 @@ const DashboardComplete = () => {
   const [dataHash, setDataHash] = useState('');
   const [previousDataLength, setPreviousDataLength] = useState(0);
   
-  // NUEVO: Estado para modo oscuro
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    const savedTheme = localStorage.getItem('smartbee_theme');
-    return savedTheme === 'dark';
-  });
-
-  // Estados para filtros de tiempo
-  const [timeFilter, setTimeFilter] = useState('1semana');
+  // NUEVO: Estados para filtros de tiempo
+  const [timeFilter, setTimeFilter] = useState('1semana'); // Filtro por defecto
   const [customDateRange, setCustomDateRange] = useState({
     start: null,
     end: null
@@ -53,71 +47,13 @@ const DashboardComplete = () => {
   const pesoChartRef = useRef(null);
   const chartInstances = useRef({});
 
-  // Definir los filtros de tiempo disponibles
+  // NUEVO: Definir los filtros de tiempo disponibles
   const timeFilters = [
     { key: '1dia', label: '📅 Último Día', hours: 24 },
     { key: '1semana', label: '📆 Última Semana', hours: 168 },
     { key: '1mes', label: '🗓️ Último Mes', hours: 720 },
     { key: '1año', label: '📊 Último Año', hours: 8760 }
   ];
-
-  // NUEVO: Función para alternar modo oscuro
-  const toggleDarkMode = () => {
-    const newDarkMode = !isDarkMode;
-    setIsDarkMode(newDarkMode);
-    localStorage.setItem('smartbee_theme', newDarkMode ? 'dark' : 'light');
-  };
-
-  // NUEVO: Función para obtener colores según el modo
-  const getTheme = () => {
-    if (isDarkMode) {
-      return {
-        // Modo oscuro
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-        cardBackground: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
-        cardBackgroundSecondary: 'linear-gradient(135deg, #334155 0%, #475569 100%)',
-        textPrimary: '#f8fafc',
-        textSecondary: '#e2e8f0',
-        textMuted: '#94a3b8',
-        border: '1px solid rgba(71, 85, 105, 0.3)',
-        borderSecondary: '1px solid rgba(100, 116, 139, 0.3)',
-        shadow: '0 4px 20px rgba(0, 0, 0, 0.25)',
-        shadowLarge: '0 8px 32px rgba(0, 0, 0, 0.3)',
-        alertError: 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)',
-        alertWarning: 'linear-gradient(135deg, #78350f 0%, #92400e 100%)',
-        alertInfo: 'linear-gradient(135deg, #0c4a6e 0%, #075985 100%)',
-        alertSuccess: 'linear-gradient(135deg, #14532d 0%, #166534 100%)',
-        buttonPrimary: 'linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%)',
-        buttonSecondary: 'linear-gradient(135deg, #475569 0%, #64748b 100%)',
-        chartGridColor: '#475569',
-        chartTextColor: '#e2e8f0'
-      };
-    } else {
-      return {
-        // Modo claro
-        background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-        cardBackground: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-        cardBackgroundSecondary: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-        textPrimary: '#1f2937',
-        textSecondary: '#374151',
-        textMuted: '#6b7280',
-        border: '1px solid rgba(226, 232, 240, 0.8)',
-        borderSecondary: '1px solid rgba(203, 213, 225, 0.5)',
-        shadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
-        shadowLarge: '0 8px 32px rgba(0, 0, 0, 0.1)',
-        alertError: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
-        alertWarning: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-        alertInfo: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-        alertSuccess: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
-        buttonPrimary: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-        buttonSecondary: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-        chartGridColor: '#f0f0f0',
-        chartTextColor: '#374151'
-      };
-    }
-  };
-
-  const theme = getTheme();
 
   useEffect(() => {
     checkAuthentication();
@@ -129,18 +65,18 @@ const DashboardComplete = () => {
     }
   }, [currentUser]);
 
-  // Aplicar filtro cuando cambien los datos o el filtro seleccionado
+  // NUEVO: Aplicar filtro cuando cambien los datos o el filtro seleccionado
   useEffect(() => {
     if (sensorData.length > 0) {
       applyTimeFilter();
     }
   }, [sensorData, timeFilter, customDateRange]);
 
-  // Auto-actualizar datos cada 5 segundos
+  // Auto-actualizar datos cada 10 segundos
   useEffect(() => {
     if (currentUser) {
       const interval = setInterval(() => {
-        console.log('🔄 Auto-actualización cada 5 segundos...');
+        console.log('🔄 Auto-actualización cada 10 segundos...');
         loadSensorData();
       }, 5000);
       return () => clearInterval(interval);
@@ -158,7 +94,7 @@ const DashboardComplete = () => {
     };
   }, []);
 
-  // Hook para crear/actualizar gráficos cuando cambien los datos FILTRADOS o el tema
+  // Hook para crear/actualizar gráficos cuando cambien los datos FILTRADOS
   useEffect(() => {
     if (filteredData.length > 0) {
       const isInitialLoad = !chartInstances.current.temperatura && !chartInstances.current.humedad && !chartInstances.current.peso;
@@ -183,9 +119,9 @@ const DashboardComplete = () => {
         }
       });
     }
-  }, [filteredData, isDarkMode]); // Agregado isDarkMode para actualizar gráficos
+  }, [filteredData]);
 
-  // Función para aplicar filtros de tiempo
+  // NUEVA: Función para aplicar filtros de tiempo
   const applyTimeFilter = () => {
     console.log(`🔍 Aplicando filtro: ${timeFilter}`);
     
@@ -211,7 +147,7 @@ const DashboardComplete = () => {
     } else if (customDateRange.start && customDateRange.end) {
       const startDate = new Date(customDateRange.start);
       const endDate = new Date(customDateRange.end);
-      endDate.setHours(23, 59, 59, 999);
+      endDate.setHours(23, 59, 59, 999); // Incluir todo el día final
       
       filtered = sensorData.filter(item => {
         const itemDate = ensureDate(item.fecha);
@@ -234,13 +170,13 @@ const DashboardComplete = () => {
     });
   };
 
-  // Función para cambiar filtro de tiempo
+  // NUEVA: Función para cambiar filtro de tiempo
   const handleTimeFilterChange = (filterKey) => {
     console.log(`🔄 Cambiando filtro a: ${filterKey}`);
     setTimeFilter(filterKey);
   };
 
-  // Función para aplicar rango personalizado
+  // NUEVA: Función para aplicar rango personalizado
   const handleCustomDateRange = (start, end) => {
     setCustomDateRange({ start, end });
     setTimeFilter('personalizado');
@@ -363,7 +299,7 @@ const DashboardComplete = () => {
         });
       }
 
-      // Cargar datos de sensores
+      // Cargar datos de sensores (TODOS los datos disponibles, se filtrarán después)
       await loadSensorData();
 
     } catch (err) {
@@ -377,7 +313,7 @@ const DashboardComplete = () => {
     }
   };
 
-  // Función para cargar datos de sensores
+  // Función MEJORADA para cargar TODOS los datos reales disponibles (sin filtrar por tiempo)
   const loadSensorData = async () => {
     setIsLoadingData(true);
     
@@ -385,22 +321,24 @@ const DashboardComplete = () => {
       const startTime = new Date();
       console.log('📡 [' + startTime.toLocaleTimeString() + '] Cargando TODOS los datos disponibles...');
       
-      // Intentar primero con el endpoint específico del dashboard
+      // Intentar primero con el endpoint específico del dashboard (cargar MÁS datos)
       try {
-        const dashboardResponse = await dashboard.getSensorData(8760);
+        const dashboardResponse = await dashboard.getSensorData(8760); // 8760 horas = 1 año completo
         console.log('📊 Respuesta dashboard:', {
           timestamp: new Date().toLocaleTimeString(),
           data: dashboardResponse
         });
         
         if (dashboardResponse && dashboardResponse.combinados && dashboardResponse.combinados.length > 0) {
+          // Tomar TODOS los datos disponibles
           const datosReales = dashboardResponse.combinados
             .map(item => ({
               ...item,
               fecha: ensureDate(item.fecha)
             }))
-            .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+            .sort((a, b) => a.fecha.getTime() - b.fecha.getTime()); // Orden cronológico
           
+          // Crear un hash de los datos para detectar cambios reales
           const newDataHash = JSON.stringify(datosReales.map(d => ({ id: d.id, fecha: d.fecha.getTime() })));
           
           console.log('🔍 Comparando datos:', {
@@ -411,6 +349,7 @@ const DashboardComplete = () => {
             hashIgual: dataHash === newDataHash
           });
           
+          // Solo actualizar si los datos realmente cambiaron
           if (dataHash !== newDataHash) {
             console.log('✅ DATOS NUEVOS DETECTADOS - Actualizando dashboard');
             
@@ -418,11 +357,13 @@ const DashboardComplete = () => {
             setDataHash(newDataHash);
             setLastUpdateTime(new Date());
             setDataSourceInfo(`Dashboard API - ${datosReales.length} registros totales`);
+            
+            // No mostrar alerta aquí, se mostrará después del filtro
           } else {
             console.log('⏸️ Mismos datos - Sin cambios detectados');
           }
           
-          return;
+          return; // Salir exitosamente
         } else {
           console.warn('⚠️ Dashboard API no devolvió datos válidos');
         }
@@ -433,7 +374,7 @@ const DashboardComplete = () => {
       // Fallback: endpoint de mensajes
       try {
         console.log('🔄 Fallback: Intentando con endpoint de mensajes...');
-        const mensajesResponse = await mensajes.getRecientes(8760);
+        const mensajesResponse = await mensajes.getRecientes(8760); // 8760 horas = 1 año
         console.log('📊 Respuesta mensajes:', {
           timestamp: new Date().toLocaleTimeString(),
           totalMensajes: mensajesResponse?.data?.length || 0
@@ -443,9 +384,11 @@ const DashboardComplete = () => {
           const processedData = processSensorMessages(mensajesResponse.data);
           
           if (processedData.length > 0) {
+            // Tomar TODOS los datos procesados
             const todosLosDatos = processedData
-              .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+              .sort((a, b) => a.fecha.getTime() - b.fecha.getTime()); // Orden cronológico
             
+            // Crear hash para detectar cambios
             const newDataHash = JSON.stringify(todosLosDatos.map(d => ({ id: d.id, fecha: d.fecha.getTime() })));
             
             if (dataHash !== newDataHash) {
@@ -459,7 +402,7 @@ const DashboardComplete = () => {
               console.log('⏸️ Mismos datos desde mensajes - Sin cambios');
             }
             
-            return;
+            return; // Salir exitosamente
           }
         }
       } catch (mensajesError) {
@@ -488,7 +431,7 @@ const DashboardComplete = () => {
     }
   };
 
-  // Función para procesar mensajes
+  // Función para procesar mensajes (CORREGIDA para incluir TODOS los nodos con datos de sensores)
   const processSensorMessages = (messages) => {
     if (!messages || !Array.isArray(messages)) {
       console.warn('⚠️ Mensajes inválidos:', messages);
@@ -497,10 +440,12 @@ const DashboardComplete = () => {
 
     console.log('🔄 Procesando', messages.length, 'mensajes para obtener TODOS los datos...');
     
+    // CORREGIDO: Definir todos los nodos que pueden tener datos de sensores
     const nodoInterno = 'NODO-BEF8C985-0FF3-4874-935B-40AA8A235FF7';
     const nodoExterno = 'NODO-B5B3ABC4-E0CE-4662-ACB3-7A631C12394A';
-    const nodoReal = 'NODO-7881883A-97A5-47E0-869C-753E99E1B168';
+    const nodoReal = 'NODO-7881883A-97A5-47E0-869C-753E99E1B168'; // TU NODO REAL
     
+    // Mostrar todos los nodos únicos disponibles
     const nodosUnicos = [...new Set(messages.map(m => m.nodo_id))];
     console.log('📋 Nodos únicos en mensajes:', nodosUnicos);
     
@@ -508,6 +453,7 @@ const DashboardComplete = () => {
       .filter(msg => {
         const hasPayload = msg.payload && typeof msg.payload === 'object';
         
+        // CORREGIDO: Aceptar CUALQUIER nodo que tenga datos de sensores
         const hasSensorData = hasPayload && (
           msg.payload.temperatura !== undefined || 
           msg.payload.humedad !== undefined ||
@@ -517,7 +463,7 @@ const DashboardComplete = () => {
           msg.payload.weight !== undefined
         );
         
-        return hasPayload && hasSensorData;
+        return hasPayload && hasSensorData; // ACEPTAR TODOS LOS NODOS CON DATOS
       })
       .map(msg => {
         const payload = msg.payload;
@@ -525,14 +471,16 @@ const DashboardComplete = () => {
         const humedad = payload.humedad || payload.humidity || null;
         const peso = payload.peso || payload.weight || null;
         
+        // CORREGIDO: Determinar el tipo según el nodo o por defecto
         let tipo = 'sensor';
         if (msg.nodo_id === nodoInterno) {
           tipo = 'interno';
         } else if (msg.nodo_id === nodoExterno) {
           tipo = 'externo';
         } else if (msg.nodo_id === nodoReal) {
-          tipo = 'real';
+          tipo = 'real'; // Nuevo tipo para tu nodo real
         } else {
+          // Para cualquier otro nodo, determinar tipo por presencia de peso
           tipo = peso !== null ? 'interno' : 'externo';
         }
         
@@ -553,7 +501,7 @@ const DashboardComplete = () => {
       .filter(item => {
         return item.temperatura !== null || item.humedad !== null || item.peso !== null;
       })
-      .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+      .sort((a, b) => a.fecha.getTime() - b.fecha.getTime()); // Orden cronológico
 
     console.log('✅ Mensajes procesados (TODOS los datos):', sensorMessages.length);
     console.log('📊 Desglose por tipo:', {
@@ -571,20 +519,20 @@ const DashboardComplete = () => {
     loadDashboardData();
   };
 
-  // Función para crear gráficos con Chart.js - Versión optimizada con tema
+  // Función para crear gráficos con Chart.js - Versión optimizada
   const createSpecificChart = (data, chartType, title, chartId) => {
     if (!data || data.length < 2) {
       return (
         <div style={{
-          background: theme.cardBackground,
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
           padding: '24px',
           borderRadius: '16px',
-          boxShadow: theme.shadow,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
           textAlign: 'center',
-          border: theme.border
+          border: '1px solid rgba(226, 232, 240, 0.8)'
         }}>
-          <h3 style={{ margin: 0, color: theme.textMuted }}>📊 {title}</h3>
-          <p style={{ color: theme.textMuted, margin: '16px 0 0 0' }}>
+          <h3 style={{ margin: 0, color: '#6b7280' }}>📊 {title}</h3>
+          <p style={{ color: '#9ca3af', margin: '16px 0 0 0' }}>
             No hay suficientes datos para mostrar el gráfico en el período seleccionado
           </p>
         </div>
@@ -595,13 +543,13 @@ const DashboardComplete = () => {
 
     return (
       <div style={{
-        background: theme.cardBackground,
+        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
         padding: '24px',
         borderRadius: '16px',
-        boxShadow: theme.shadow,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.1)',
         flex: '1',
         minWidth: isMobile ? '100%' : '320px',
-        border: theme.border,
+        border: '1px solid rgba(226, 232, 240, 0.8)',
         position: 'relative',
         overflow: 'hidden'
       }}>
@@ -653,11 +601,11 @@ const DashboardComplete = () => {
           justifyContent: 'center',
           flexWrap: 'wrap',
           padding: '16px',
-          background: isDarkMode ? 'rgba(71, 85, 105, 0.3)' : 'rgba(249, 250, 251, 0.8)',
+          background: 'rgba(249, 250, 251, 0.8)',
           borderRadius: '12px',
-          border: theme.borderSecondary
+          border: '1px solid rgba(229, 231, 235, 0.5)'
         }}>
-          <span style={{ fontSize: '12px', color: theme.textMuted }}>
+          <span style={{ fontSize: '12px', color: '#6b7280' }}>
             {timeFilters.find(f => f.key === timeFilter)?.label || 'Filtro personalizado'} - {data.length} registros
           </span>
         </div>
@@ -665,7 +613,7 @@ const DashboardComplete = () => {
     );
   };
 
-  // Función auxiliar para crear instancias de Chart.js con tema
+  // Función auxiliar para crear instancias de Chart.js
   const createChartJSInstance = (ctx, data, chartType) => {
     if (!data || data.length < 2) return null;
 
@@ -827,22 +775,12 @@ const DashboardComplete = () => {
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         animation: {
-          duration: 300
+          duration: 300 // Animación suave para cambios de filtro
         },
         plugins: {
-          legend: { 
-            position: 'top',
-            labels: {
-              color: theme.chartTextColor,
-              usePointStyle: true
-            }
-          },
+          legend: { position: 'top' },
           tooltip: {
-            backgroundColor: isDarkMode ? 'rgba(30, 41, 59, 0.9)' : 'rgba(0, 0, 0, 0.8)',
-            titleColor: isDarkMode ? '#f8fafc' : '#ffffff',
-            bodyColor: isDarkMode ? '#e2e8f0' : '#ffffff',
-            borderColor: theme.chartGridColor,
-            borderWidth: 1,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
             callbacks: {
               label: function(context) {
                 let label = context.dataset.label || '';
@@ -863,33 +801,15 @@ const DashboardComplete = () => {
         },
         scales: {
           x: {
-            title: { 
-              display: true, 
-              text: 'Tiempo',
-              color: theme.chartTextColor
-            },
+            title: { display: true, text: 'Tiempo' },
             ticks: { 
               maxRotation: 45, 
               minRotation: 45,
-              maxTicksLimit: 20,
-              color: theme.chartTextColor
-            },
-            grid: {
-              color: theme.chartGridColor
+              maxTicksLimit: 20
             }
           },
           y: {
-            title: { 
-              display: true, 
-              text: yAxisLabel,
-              color: theme.chartTextColor
-            },
-            ticks: {
-              color: theme.chartTextColor
-            },
-            grid: {
-              color: theme.chartGridColor
-            }
+            title: { display: true, text: yAxisLabel }
           }
         }
       }
@@ -898,16 +818,16 @@ const DashboardComplete = () => {
     return new Chart.Chart(ctx, config);
   };
 
-  // Función para crear tabla de datos con tema
+  // Función para crear tabla de datos (modificada para usar datos filtrados)
   const createDataTable = (data, tableType, title) => {
     if (!data || data.length === 0) {
       return (
         <div style={{
-          background: theme.cardBackground,
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
           padding: '20px',
           borderRadius: '12px',
-          border: theme.border,
-          boxShadow: theme.shadow,
+          border: '1px solid rgba(226, 232, 240, 0.8)',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
           marginTop: '16px',
           textAlign: 'center'
         }}>
@@ -915,11 +835,11 @@ const DashboardComplete = () => {
             margin: '0 0 8px 0',
             fontSize: '1.1rem',
             fontWeight: '600',
-            color: theme.textPrimary
+            color: '#1f2937'
           }}>
             📊 {title}
           </h4>
-          <p style={{ color: theme.textMuted, margin: 0 }}>
+          <p style={{ color: '#6b7280', margin: 0 }}>
             No hay datos disponibles para el período seleccionado
           </p>
         </div>
@@ -975,11 +895,11 @@ const DashboardComplete = () => {
     if (datosTabla.length === 0) {
       return (
         <div style={{
-          background: theme.cardBackground,
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
           padding: '20px',
           borderRadius: '12px',
-          border: theme.border,
-          boxShadow: theme.shadow,
+          border: '1px solid rgba(226, 232, 240, 0.8)',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
           marginTop: '16px',
           textAlign: 'center'
         }}>
@@ -987,11 +907,11 @@ const DashboardComplete = () => {
             margin: '0 0 8px 0',
             fontSize: '1.1rem',
             fontWeight: '600',
-            color: theme.textPrimary
+            color: '#1f2937'
           }}>
             📊 {title}
           </h4>
-          <p style={{ color: theme.textMuted, margin: 0 }}>
+          <p style={{ color: '#6b7280', margin: 0 }}>
             No hay datos de {tableType} para el período seleccionado
           </p>
         </div>
@@ -1000,18 +920,18 @@ const DashboardComplete = () => {
     
     return (
       <div style={{
-        background: theme.cardBackground,
+        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
         padding: '20px',
         borderRadius: '12px',
-        border: theme.border,
-        boxShadow: theme.shadow,
+        border: '1px solid rgba(226, 232, 240, 0.8)',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
         marginTop: '16px'
       }}>
         <h4 style={{
           margin: '0 0 16px 0',
           fontSize: '1.1rem',
           fontWeight: '600',
-          color: theme.textPrimary,
+          color: '#1f2937',
           display: 'flex',
           alignItems: 'center',
           gap: '8px'
@@ -1020,8 +940,8 @@ const DashboardComplete = () => {
           <span style={{
             fontSize: '0.8rem',
             fontWeight: '500',
-            color: theme.textMuted,
-            backgroundColor: isDarkMode ? 'rgba(71, 85, 105, 0.5)' : '#f3f4f6',
+            color: '#6b7280',
+            backgroundColor: '#f3f4f6',
             padding: '2px 8px',
             borderRadius: '12px'
           }}>
@@ -1035,20 +955,15 @@ const DashboardComplete = () => {
             borderCollapse: 'collapse',
             fontSize: '0.9rem'
           }}>
-            <thead style={{ 
-              position: 'sticky', 
-              top: 0, 
-              backgroundColor: isDarkMode ? '#334155' : '#f8fafc', 
-              zIndex: 1 
-            }}>
+            <thead style={{ position: 'sticky', top: 0, backgroundColor: '#f8fafc', zIndex: 1 }}>
               <tr>
                 {columnas.map((col, index) => (
                   <th key={index} style={{
                     padding: '12px 8px',
                     textAlign: 'left',
                     fontWeight: '600',
-                    color: theme.textPrimary,
-                    borderBottom: `2px solid ${isDarkMode ? '#475569' : '#e5e7eb'}`
+                    color: '#374151',
+                    borderBottom: '2px solid #e5e7eb'
                   }}>
                     {col.title}
                   </th>
@@ -1058,15 +973,13 @@ const DashboardComplete = () => {
             <tbody>
               {datosTabla.map((row, index) => (
                 <tr key={index} style={{
-                  borderBottom: `1px solid ${isDarkMode ? '#475569' : '#f3f4f6'}`,
-                  backgroundColor: index % 2 === 0 ? 
-                    (isDarkMode ? 'rgba(51, 65, 85, 0.3)' : '#ffffff') : 
-                    (isDarkMode ? 'rgba(71, 85, 105, 0.3)' : '#f9fafb')
+                  borderBottom: '1px solid #f3f4f6',
+                  backgroundColor: index % 2 === 0 ? '#ffffff' : '#f9fafb'
                 }}>
                   {columnas.map((col, colIndex) => (
                     <td key={colIndex} style={{
                       padding: '10px 8px',
-                      color: theme.textSecondary
+                      color: '#6b7280'
                     }}>
                       {col.format(row)}
                     </td>
@@ -1080,18 +993,18 @@ const DashboardComplete = () => {
     );
   };
 
-  // Componente de filtros de tiempo con tema
+  // NUEVO: Componente de filtros de tiempo
   const TimeFiltersComponent = () => {
     const isMobile = window.innerWidth <= 768;
     
     return (
       <div style={{
-        background: theme.cardBackground,
+        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
         padding: '24px',
         borderRadius: '20px',
-        boxShadow: theme.shadowLarge,
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1)',
         marginBottom: '32px',
-        border: theme.border
+        border: '1px solid rgba(226, 232, 240, 0.8)'
       }}>
         <div style={{
           display: 'flex',
@@ -1114,7 +1027,7 @@ const DashboardComplete = () => {
             <p style={{
               margin: 0,
               fontSize: '0.9rem',
-              color: theme.textMuted,
+              color: '#6b7280',
               fontWeight: '500'
             }}>
               {filteredData.length} registros de {sensorData.length} totales
@@ -1137,11 +1050,9 @@ const DashboardComplete = () => {
                   padding: isMobile ? '12px 16px' : '10px 16px',
                   background: timeFilter === filter.key 
                     ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
-                    : isDarkMode 
-                      ? 'linear-gradient(135deg, #475569 0%, #64748b 100%)'
-                      : 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-                  color: timeFilter === filter.key ? 'white' : theme.textSecondary,
-                  border: timeFilter === filter.key ? 'none' : `2px solid ${isDarkMode ? '#64748b' : 'rgba(148, 163, 184, 0.3)'}`,
+                    : 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+                  color: timeFilter === filter.key ? 'white' : '#4b5563',
+                  border: timeFilter === filter.key ? 'none' : '2px solid rgba(148, 163, 184, 0.3)',
                   borderRadius: '12px',
                   fontSize: isMobile ? '0.9rem' : '0.875rem',
                   fontWeight: '600',
@@ -1153,6 +1064,18 @@ const DashboardComplete = () => {
                     ? '0 6px 20px rgba(99, 102, 241, 0.4)' 
                     : '0 2px 8px rgba(0, 0, 0, 0.1)',
                   letterSpacing: '0.025em'
+                }}
+                onMouseOver={(e) => {
+                  if (timeFilter !== filter.key) {
+                    e.target.style.transform = 'scale(1.02)';
+                    e.target.style.background = 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)';
+                  }
+                }}
+                onMouseOut={(e) => {
+                  if (timeFilter !== filter.key) {
+                    e.target.style.transform = 'scale(1)';
+                    e.target.style.background = 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)';
+                  }
                 }}
               >
                 {filter.label}
@@ -1177,7 +1100,7 @@ const DashboardComplete = () => {
               <label style={{ 
                 fontSize: '0.8rem', 
                 fontWeight: '600', 
-                color: theme.textMuted,
+                color: '#6b7280',
                 whiteSpace: 'nowrap'
               }}>
                 📅 Rango:
@@ -1188,28 +1111,28 @@ const DashboardComplete = () => {
                 onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
                 style={{
                   padding: '8px 12px',
-                  border: `2px solid ${isDarkMode ? '#64748b' : 'rgba(148, 163, 184, 0.3)'}`,
+                  border: '2px solid rgba(148, 163, 184, 0.3)',
                   borderRadius: '8px',
                   fontSize: '0.8rem',
                   fontWeight: '500',
-                  color: theme.textSecondary,
-                  background: isDarkMode ? '#334155' : '#ffffff',
+                  color: '#4b5563',
+                  background: '#ffffff',
                   minWidth: '140px'
                 }}
               />
-              <span style={{ color: theme.textMuted, fontWeight: '500' }}>a</span>
+              <span style={{ color: '#9ca3af', fontWeight: '500' }}>a</span>
               <input
                 type="date"
                 value={customDateRange.end || ''}
                 onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
                 style={{
                   padding: '8px 12px',
-                  border: `2px solid ${isDarkMode ? '#64748b' : 'rgba(148, 163, 184, 0.3)'}`,
+                  border: '2px solid rgba(148, 163, 184, 0.3)',
                   borderRadius: '8px',
                   fontSize: '0.8rem',
                   fontWeight: '500',
-                  color: theme.textSecondary,
-                  background: isDarkMode ? '#334155' : '#ffffff',
+                  color: '#4b5563',
+                  background: '#ffffff',
                   minWidth: '140px'
                 }}
               />
@@ -1245,11 +1168,9 @@ const DashboardComplete = () => {
           <div style={{
             marginTop: '20px',
             padding: '16px',
-            background: isDarkMode 
-              ? 'linear-gradient(135deg, #14532d 0%, #166534 100%)'
-              : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
             borderRadius: '12px',
-            border: `2px solid ${isDarkMode ? '#16a34a' : 'rgba(34, 197, 94, 0.2)'}`
+            border: '2px solid rgba(34, 197, 94, 0.2)'
           }}>
             <div style={{
               display: 'grid',
@@ -1257,7 +1178,7 @@ const DashboardComplete = () => {
               gap: '12px',
               fontSize: '0.9rem',
               fontWeight: '500',
-              color: isDarkMode ? '#bbf7d0' : '#166534'
+              color: '#166534'
             }}>
               <div>
                 📊 <strong>Registros mostrados:</strong> {filteredData.length}
@@ -1290,10 +1211,10 @@ const DashboardComplete = () => {
       padding: isMobile ? '16px' : '24px',
       maxWidth: '100%',
       overflow: 'hidden',
-      background: theme.background,
+      background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
       minHeight: '100vh'
     }}>
-      {/* Header mejorado con botón de modo oscuro */}
+      {/* Header mejorado */}
       <div style={{
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
@@ -1301,11 +1222,11 @@ const DashboardComplete = () => {
         alignItems: isMobile ? 'flex-start' : 'center',
         marginBottom: '32px',
         gap: isMobile ? '20px' : '0',
-        background: theme.cardBackground,
+        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
         padding: '24px',
         borderRadius: '20px',
-        boxShadow: theme.shadowLarge,
-        border: theme.border
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1)',
+        border: '1px solid rgba(226, 232, 240, 0.8)'
       }}>
         <div>
           <h1 style={{ 
@@ -1319,20 +1240,20 @@ const DashboardComplete = () => {
             lineHeight: '1.2',
             letterSpacing: '-0.025em'
           }}>
-            🏠 Dashboard SmartBee - Modo {isDarkMode ? 'Oscuro' : 'Claro'}
+            🏠 Dashboard SmartBee - Filtros Temporales
           </h1>
           <h2 style={{ 
             margin: '8px 0 0 0',
             fontSize: isMobile ? '1.1rem' : '1.3rem',
             fontWeight: '600',
-            color: theme.textMuted,
+            color: '#6b7280',
             letterSpacing: '0.025em'
           }}>
             👋 {currentUser.nombre} {currentUser.apellido}
           </h2>
           <div style={{ 
             fontSize: isMobile ? '0.875rem' : '0.95rem', 
-            color: theme.textMuted, 
+            color: '#9ca3af', 
             margin: '8px 0 0 0',
             lineHeight: '1.5',
             display: 'flex',
@@ -1385,77 +1306,32 @@ const DashboardComplete = () => {
             </span>
           </div>
         </div>
-
-        {/* Botones de acción con toggle de modo oscuro */}
-        <div style={{
-          display: 'flex',
-          gap: '12px',
-          flexWrap: 'wrap'
-        }}>
-          // Reemplaza el botón de modo oscuro existente con este código corregido:
-
-{/* Botón de modo oscuro CORREGIDO */}
-<button 
-  onClick={toggleDarkMode}
-  style={{
-    padding: isMobile ? '12px' : '16px',
-    background: isDarkMode 
-      ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)'
-      : 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
-    color: 'white',
-    border: 'none',
-    borderRadius: '12px',
-    fontSize: isMobile ? '1.2rem' : '1.5rem',
-    cursor: 'pointer',
-    boxShadow: '0 4px 14px rgba(0, 0, 0, 0.2)',
-    transition: 'all 0.3s ease',
-    transform: 'scale(1)',
-    minWidth: '60px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px'
-  }}
-  onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'}
-  onMouseOut={(e) => e.target.style.transform = 'scale(1)'}
-  title={`Cambiar a modo ${isDarkMode ? 'claro' : 'oscuro'}`}
->
-  {isDarkMode ? '☀️' : '🌙'}
-  {!isMobile && (
-    <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>
-      {isDarkMode ? 'Modo Claro' : 'Modo Oscuro'}
-    </span>
-  )}
-</button>
-
-{/* Botón de actualizar datos */}
-<button 
-  onClick={handleRefresh}
-  disabled={isLoadingData}
-  style={{
-    padding: isMobile ? '12px 16px' : '16px 20px',
-    background: isLoadingData 
-      ? 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)'
-      : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-    color: 'white',
-    border: 'none',
-    borderRadius: '12px',
-    fontSize: isMobile ? '0.9rem' : '1rem',
-    fontWeight: '600',
-    cursor: isLoadingData ? 'not-allowed' : 'pointer',
-    boxShadow: isLoadingData ? 'none' : '0 4px 14px rgba(59, 130, 246, 0.3)',
-    transition: 'all 0.3s ease',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px'
-  }}
->
-  {isLoadingData ? '⏳' : '🔄'} 
-  {isLoadingData ? 'Actualizando...' : 'Actualizar Datos'}
-</button>
-        </div>
+        <button 
+          style={{
+            padding: isMobile ? '12px 20px' : '16px 24px',
+            background: isLoading || isLoadingData 
+              ? 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)'
+              : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '12px',
+            fontSize: isMobile ? '0.9rem' : '1rem',
+            fontWeight: '600',
+            cursor: isLoading || isLoadingData ? 'not-allowed' : 'pointer',
+            whiteSpace: 'nowrap',
+            boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
+            transition: 'all 0.3s ease',
+            transform: isLoading || isLoadingData ? 'scale(0.95)' : 'scale(1)',
+            letterSpacing: '0.025em'
+          }}
+          onClick={handleRefresh}
+          disabled={isLoading || isLoadingData}
+        >
+          {isLoadingData ? '⏳ Actualizando...' : '🔄 Actualizar Datos'}
+        </button>
       </div>
 
-      {/* Componente de Filtros de Tiempo */}
+      {/* NUEVO: Componente de Filtros de Tiempo */}
       <TimeFiltersComponent />
       
       {alertMessage && (
@@ -1464,27 +1340,25 @@ const DashboardComplete = () => {
           padding: '16px 20px',
           borderRadius: '12px',
           background: alertMessage.type === 'error' 
-            ? (isDarkMode ? theme.alertError : 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)')
+            ? 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)'
             : alertMessage.type === 'warning'
-            ? (isDarkMode ? theme.alertWarning : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)')
-            : (isDarkMode ? theme.alertSuccess : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)'),
+            ? 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)'
+            : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
           border: `2px solid ${
-            alertMessage.type === 'error' ? (isDarkMode ? '#dc2626' : '#fecaca') : 
-            alertMessage.type === 'warning' ? (isDarkMode ? '#d97706' : '#fde68a') : 
-            (isDarkMode ? '#16a34a' : '#bbf7d0')
+            alertMessage.type === 'error' ? '#fecaca' : 
+            alertMessage.type === 'warning' ? '#fde68a' : '#bbf7d0'
           }`,
-          color: alertMessage.type === 'error' ? (isDarkMode ? '#fecaca' : '#b91c1c') : 
-                 alertMessage.type === 'warning' ? (isDarkMode ? '#fcd34d' : '#92400e') : 
-                 (isDarkMode ? '#bbf7d0' : '#166534'),
+          color: alertMessage.type === 'error' ? '#b91c1c' : 
+                 alertMessage.type === 'warning' ? '#92400e' : '#166534',
           fontSize: isMobile ? '0.9rem' : '1rem',
           fontWeight: '500',
-          boxShadow: theme.shadow
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
         }}>
           {alertMessage.type === 'error' ? '❌' : alertMessage.type === 'warning' ? '⚠️' : '✅'} {alertMessage.message}
         </div>
       )}
 
-      {/* Grid de estadísticas mejorado con tema oscuro */}
+      {/* Grid de estadísticas mejorado con datos filtrados */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)',
@@ -1497,18 +1371,14 @@ const DashboardComplete = () => {
             value: userColmenas.length, 
             icon: '🏠', 
             color: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            bgColor: isDarkMode 
-              ? 'linear-gradient(135deg, #14532d 0%, #166534 100%)'
-              : 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)'
+            bgColor: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)'
           },
           { 
             title: userColmenas.length > 0 ? (userColmenas[0].descripcion || 'Sin descripción') : 'Sin colmenas',
             value: userColmenas.length > 0 ? `ID: ${userColmenas[0].id.toString().substring(0, 8)}...` : 'N/A',
             icon: '📋', 
             color: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-            bgColor: isDarkMode 
-              ? 'linear-gradient(135deg, #581c87 0%, #6b21a8 100%)'
-              : 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
+            bgColor: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
             small: true
           },
           { 
@@ -1518,9 +1388,7 @@ const DashboardComplete = () => {
               'Sin datos en período', 
             icon: '⚖️', 
             color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-            bgColor: isDarkMode 
-              ? 'linear-gradient(135deg, #78350f 0%, #92400e 100%)'
-              : 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+            bgColor: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
             span: isMobile ? 2 : 1
           },
           { 
@@ -1530,9 +1398,7 @@ const DashboardComplete = () => {
               'Sin datos en período', 
             icon: '💧', 
             color: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-            bgColor: isDarkMode 
-              ? 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)'
-              : 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
+            bgColor: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
           },
           { 
             title: '🔥 Temperatura FILTRADA', 
@@ -1541,19 +1407,17 @@ const DashboardComplete = () => {
               'Sin datos en período', 
             icon: '🌡️', 
             color: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-            bgColor: isDarkMode 
-              ? 'linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%)'
-              : 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)'
+            bgColor: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)'
           }
         ].map((stat, index) => (
           <div key={index} style={{
             background: stat.bgColor,
             padding: isMobile ? '20px' : '24px',
             borderRadius: '16px',
-            boxShadow: theme.shadow,
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.1)',
             textAlign: 'center',
             gridColumn: stat.span ? `span ${stat.span}` : 'span 1',
-            border: theme.border,
+            border: '1px solid rgba(255, 255, 255, 0.6)',
             position: 'relative',
             overflow: 'hidden'
           }}>
@@ -1579,7 +1443,7 @@ const DashboardComplete = () => {
             <p style={{ 
               margin: 0, 
               fontSize: isMobile ? '0.8rem' : '0.9rem',
-              color: isDarkMode ? '#e2e8f0' : '#6b7280',
+              color: '#6b7280',
               fontWeight: '600',
               letterSpacing: '0.025em'
             }}>
@@ -1592,13 +1456,13 @@ const DashboardComplete = () => {
       {/* Gráficos con datos filtrados */}
       {filteredData.length === 0 ? (
         <div style={{
-          background: theme.cardBackground,
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
           padding: isMobile ? '32px 20px' : '40px 32px',
           borderRadius: '20px',
-          boxShadow: theme.shadowLarge,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08)',
           marginBottom: '24px',
           textAlign: 'center',
-          border: theme.border
+          border: '1px solid rgba(226, 232, 240, 0.8)'
         }}>
           <div style={{ 
             fontSize: isMobile ? '4rem' : '5rem', 
@@ -1611,13 +1475,16 @@ const DashboardComplete = () => {
             fontSize: isMobile ? '1.25rem' : '1.5rem', 
             marginBottom: '12px',
             fontWeight: '700',
-            color: theme.textPrimary
+            background: 'linear-gradient(135deg, #1f2937 0%, #4b5563 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text'
           }}>
             Sin Datos para el Período Seleccionado
           </h3>
           <p style={{ 
             fontSize: isMobile ? '1rem' : '1.1rem', 
-            color: theme.textMuted,
+            color: '#6b7280',
             margin: '0 0 16px 0',
             fontWeight: '500'
           }}>
@@ -1625,7 +1492,7 @@ const DashboardComplete = () => {
           </p>
           <p style={{ 
             fontSize: '0.9rem', 
-            color: theme.textMuted,
+            color: '#9ca3af',
             margin: 0,
             fontWeight: '400'
           }}>
@@ -1639,19 +1506,17 @@ const DashboardComplete = () => {
           gap: '32px',
           marginBottom: '32px'
         }}>
-          {/* Información de datos filtrados */}
+          {/* Información de datos filtrados - MEJORADA */}
           <div style={{
-            background: isDarkMode 
-              ? 'linear-gradient(135deg, #14532d 0%, #166534 100%)'
-              : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+            background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
             padding: '20px',
             borderRadius: '12px',
-            border: `2px solid ${isDarkMode ? '#16a34a' : 'rgba(34, 197, 94, 0.3)'}`,
+            border: '2px solid rgba(34, 197, 94, 0.3)',
             textAlign: 'center'
           }}>
             <h3 style={{ 
               margin: '0 0 8px 0', 
-              color: isDarkMode ? '#bbf7d0' : '#166534',
+              color: '#166534',
               fontSize: '1.2rem',
               fontWeight: '700'
             }}>
@@ -1664,19 +1529,19 @@ const DashboardComplete = () => {
               margin: '16px 0'
             }}>
               <div style={{
-                background: isDarkMode ? 'rgba(187, 247, 208, 0.1)' : 'rgba(255, 255, 255, 0.8)',
+                background: 'rgba(255, 255, 255, 0.8)',
                 padding: '12px',
                 borderRadius: '8px',
-                border: `1px solid ${isDarkMode ? '#16a34a' : 'rgba(34, 197, 94, 0.2)'}`
+                border: '1px solid rgba(34, 197, 94, 0.2)'
               }}>
                 <strong>📊 Registros mostrados:</strong><br/>
                 {filteredData.length} de {sensorData.length} totales
               </div>
               <div style={{
-                background: isDarkMode ? 'rgba(187, 247, 208, 0.1)' : 'rgba(255, 255, 255, 0.8)',
+                background: 'rgba(255, 255, 255, 0.8)',
                 padding: '12px',
                 borderRadius: '8px',
-                border: `1px solid ${isDarkMode ? '#16a34a' : 'rgba(34, 197, 94, 0.2)'}`
+                border: '1px solid rgba(34, 197, 94, 0.2)'
               }}>
                 <strong>🕒 Período:</strong><br/>
                 {filteredData.length > 0 ? 
@@ -1685,19 +1550,19 @@ const DashboardComplete = () => {
                 }
               </div>
               <div style={{
-                background: isDarkMode ? 'rgba(187, 247, 208, 0.1)' : 'rgba(255, 255, 255, 0.8)',
+                background: 'rgba(255, 255, 255, 0.8)',
                 padding: '12px',
                 borderRadius: '8px',
-                border: `1px solid ${isDarkMode ? '#16a34a' : 'rgba(34, 197, 94, 0.2)'}`
+                border: '1px solid rgba(34, 197, 94, 0.2)'
               }}>
                 <strong>🔍 Filtro activo:</strong><br/>
                 {timeFilters.find(f => f.key === timeFilter)?.label || 'Personalizado'}
               </div>
               <div style={{
-                background: isDarkMode ? 'rgba(187, 247, 208, 0.1)' : 'rgba(255, 255, 255, 0.8)',
+                background: 'rgba(255, 255, 255, 0.8)',
                 padding: '12px',
                 borderRadius: '8px',
-                border: `1px solid ${isDarkMode ? '#16a34a' : 'rgba(34, 197, 94, 0.2)'}`
+                border: '1px solid rgba(34, 197, 94, 0.2)'
               }}>
                 <strong>🕐 Última actualización:</strong><br/>
                 {lastUpdateTime ? lastUpdateTime.toLocaleTimeString() : 'Nunca'}
@@ -1705,11 +1570,11 @@ const DashboardComplete = () => {
             </div>
             <p style={{ 
               margin: '8px 0 0 0', 
-              color: isDarkMode ? '#bbf7d0' : '#16a34a',
+              color: '#16a34a',
               fontSize: '0.9rem',
               fontWeight: '500'
             }}>
-              🔄 Auto-actualización cada 5 segundos • Filtros dinámicos • Modo {isDarkMode ? 'oscuro' : 'claro'} activado
+              🔄 Auto-actualización cada 10 segundos • Filtros dinámicos • Gráficos responsivos
             </p>
           </div>
 
@@ -1733,17 +1598,15 @@ const DashboardComplete = () => {
         </div>
       )}
 
-      {/* Panel de información del sistema con tema */}
+      {/* Panel de información del sistema mejorado con filtros */}
       <div style={{
-        background: isDarkMode 
-          ? 'linear-gradient(135deg, #14532d 0%, #166534 100%)'
-          : 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+        background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
         padding: '20px 24px',
         borderRadius: '16px',
-        border: `2px solid ${isDarkMode ? '#16a34a' : 'rgba(34, 197, 94, 0.3)'}`,
+        border: '2px solid rgba(34, 197, 94, 0.3)',
         fontSize: '14px',
-        color: isDarkMode ? '#bbf7d0' : '#166534',
-        boxShadow: theme.shadow
+        color: '#166534',
+        boxShadow: '0 4px 12px rgba(34, 197, 94, 0.1)'
       }}>
         <div style={{
           display: 'flex',
@@ -1757,7 +1620,7 @@ const DashboardComplete = () => {
             alignItems: 'center', 
             gap: '8px',
             padding: '8px 12px',
-            background: isDarkMode ? 'rgba(187, 247, 208, 0.1)' : 'rgba(255, 255, 255, 0.8)',
+            background: 'rgba(255, 255, 255, 0.8)',
             borderRadius: '20px',
             fontWeight: '600'
           }}>
@@ -1768,7 +1631,7 @@ const DashboardComplete = () => {
             alignItems: 'center', 
             gap: '8px',
             padding: '8px 12px',
-            background: isDarkMode ? 'rgba(187, 247, 208, 0.1)' : 'rgba(255, 255, 255, 0.8)',
+            background: 'rgba(255, 255, 255, 0.8)',
             borderRadius: '20px',
             fontWeight: '600'
           }}>
@@ -1779,7 +1642,7 @@ const DashboardComplete = () => {
             alignItems: 'center', 
             gap: '8px',
             padding: '8px 12px',
-            background: isDarkMode ? 'rgba(187, 247, 208, 0.1)' : 'rgba(255, 255, 255, 0.8)',
+            background: 'rgba(255, 255, 255, 0.8)',
             borderRadius: '20px',
             fontWeight: '600'
           }}>
@@ -1790,18 +1653,29 @@ const DashboardComplete = () => {
             alignItems: 'center', 
             gap: '8px',
             padding: '8px 12px',
-            background: isDarkMode ? 'rgba(187, 247, 208, 0.1)' : 'rgba(255, 255, 255, 0.8)',
+            background: 'rgba(255, 255, 255, 0.8)',
             borderRadius: '20px',
             fontWeight: '600'
           }}>
-            🌙 <strong>Tema:</strong> {isDarkMode ? 'Modo Oscuro' : 'Modo Claro'}
+            🔄 <strong>Actualizado:</strong> {new Date().toLocaleTimeString('es-CL', { hour12: false })}
           </div>
           <div style={{ 
             display: 'flex', 
             alignItems: 'center', 
             gap: '8px',
             padding: '8px 12px',
-            background: isDarkMode ? 'rgba(187, 247, 208, 0.1)' : 'rgba(255, 255, 255, 0.8)',
+            background: 'rgba(255, 255, 255, 0.8)',
+            borderRadius: '20px',
+            fontWeight: '600'
+          }}>
+            ⚡ <strong>Filtros:</strong> Dinámicos y responsivos
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px',
+            padding: '8px 12px',
+            background: 'rgba(255, 255, 255, 0.8)',
             borderRadius: '20px',
             fontWeight: '600'
           }}>
@@ -1813,27 +1687,25 @@ const DashboardComplete = () => {
             gap: '8px',
             padding: '8px 12px',
             background: isConnected 
-              ? (isDarkMode ? 'rgba(187, 247, 208, 0.2)' : 'rgba(220, 252, 231, 0.8)')
-              : (isDarkMode ? 'rgba(254, 215, 170, 0.2)' : 'rgba(254, 243, 199, 0.8)'),
+              ? 'rgba(220, 252, 231, 0.8)' 
+              : 'rgba(254, 243, 199, 0.8)',
             borderRadius: '20px',
             fontWeight: '600',
-            color: isConnected 
-              ? (isDarkMode ? '#bbf7d0' : '#166534') 
-              : (isDarkMode ? '#fed7aa' : '#92400e')
+            color: isConnected ? '#166534' : '#92400e'
           }}>
-            {isConnected ? '🟢' : '🟡'} <strong>Estado:</strong> {isConnected ? 'Conectado' : 'Desconectado'}
+            {isConnected ? '🟢' : '🟡'} <strong>Estado:</strong> {isConnected ? 'Conectado en tiempo real' : 'Desconectado'}
           </div>
         </div>
       </div>
 
-      {/* Footer con tema */}
+      {/* Footer con información adicional y filtros */}
       <div style={{
         marginTop: '32px',
         padding: '24px',
-        background: theme.cardBackground,
+        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
         borderRadius: '16px',
-        border: theme.border,
-        boxShadow: theme.shadow,
+        border: '1px solid rgba(226, 232, 240, 0.8)',
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
         textAlign: 'center'
       }}>
         <div style={{
@@ -1848,7 +1720,7 @@ const DashboardComplete = () => {
             display: 'flex', 
             alignItems: 'center', 
             gap: '8px',
-            color: theme.textMuted,
+            color: '#6b7280',
             fontWeight: '500'
           }}>
             🐝 <span>SmartBee Dashboard</span>
@@ -1857,25 +1729,16 @@ const DashboardComplete = () => {
             display: 'flex', 
             alignItems: 'center', 
             gap: '8px',
-            color: theme.textMuted,
+            color: '#6b7280',
             fontWeight: '500'
           }}>
-            🌙 <span>Modo {isDarkMode ? 'Oscuro' : 'Claro'}</span>
+            🔍 <span>Filtros Temporales Avanzados</span>
           </div>
           <div style={{ 
             display: 'flex', 
             alignItems: 'center', 
             gap: '8px',
-            color: theme.textMuted,
-            fontWeight: '500'
-          }}>
-            🔍 <span>Filtros Temporales</span>
-          </div>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px',
-            color: theme.textMuted,
+            color: '#6b7280',
             fontWeight: '500'
           }}>
             📊 <span>Datos en Tiempo Real</span>
@@ -1884,19 +1747,28 @@ const DashboardComplete = () => {
             display: 'flex', 
             alignItems: 'center', 
             gap: '8px',
-            color: theme.textMuted,
+            color: '#6b7280',
             fontWeight: '500'
           }}>
-            ⚡ <span>Auto-actualización</span>
+            ⚡ <span>Actualización Automática</span>
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px',
+            color: '#6b7280',
+            fontWeight: '500'
+          }}>
+            🏆 <span>Apicultura Inteligente</span>
           </div>
         </div>
         <p style={{ 
           margin: 0, 
           fontSize: '0.875rem', 
-          color: theme.textMuted,
+          color: '#9ca3af',
           fontWeight: '500'
         }}>
-          🌙 Modo oscuro/claro con localStorage • Filtros dinámicos • Auto-actualización cada 5 segundos • Gráficos optimizados
+          Filtros dinámicos: 1 día, 1 semana, 1 mes, 1 año • Rango personalizado • Auto-actualización cada 10 segundos • Gráficos responsivos
         </p>
       </div>
     </div>
