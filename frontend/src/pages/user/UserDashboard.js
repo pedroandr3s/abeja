@@ -78,7 +78,7 @@ const DashboardComplete = () => {
       const interval = setInterval(() => {
         console.log('🔄 Auto-actualización cada 10 segundos...');
         loadSensorData();
-      }, 10000);
+      }, 5000);
       return () => clearInterval(interval);
     }
   }, [currentUser]);
@@ -416,7 +416,7 @@ const DashboardComplete = () => {
         setDataSourceInfo('Sin datos');
         setAlertMessage({
           type: 'error',
-          message: '❌ No se encontraron datos reales de sensores'
+          message: '❌ No se encontraron datos de sensores'
         });
       }
 
