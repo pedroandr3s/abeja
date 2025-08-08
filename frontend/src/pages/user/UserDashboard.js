@@ -24,6 +24,7 @@ const DashboardComplete = () => {
   const [userColmenas, setUserColmenas] = useState([]);
   const [sensorData, setSensorData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
+  const [hourlyData, setHourlyData] = useState({ temperatura: [], humedad: [], peso: [] });
   const [alertMessage, setAlertMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -32,8 +33,8 @@ const DashboardComplete = () => {
   const [dataHash, setDataHash] = useState('');
   const [previousDataLength, setPreviousDataLength] = useState(0);
   
-  // NUEVO: Estados para filtros de tiempo
-  const [timeFilter, setTimeFilter] = useState('1semana'); // Filtro por defecto
+  // Estados para filtros de tiempo
+  const [timeFilter, setTimeFilter] = useState('1semana');
   const [customDateRange, setCustomDateRange] = useState({
     start: null,
     end: null
@@ -47,7 +48,7 @@ const DashboardComplete = () => {
   const pesoChartRef = useRef(null);
   const chartInstances = useRef({});
 
-  // NUEVO: Definir los filtros de tiempo disponibles
+  // Definir los filtros de tiempo disponibles
   const timeFilters = [
     { key: '1dia', label: '📅 Último Día', hours: 24 },
     { key: '1semana', label: '📆 Última Semana', hours: 168 },
@@ -65,7 +66,7 @@ const DashboardComplete = () => {
     }
   }, [currentUser]);
 
-  // NUEVO: Aplicar filtro cuando cambien los datos o el filtro seleccionado
+  // Aplicar filtro cuando cambien los datos o el filtro seleccionado
   useEffect(() => {
     if (sensorData.length > 0) {
       applyTimeFilter();
@@ -78,7 +79,7 @@ const DashboardComplete = () => {
       const interval = setInterval(() => {
         console.log('🔄 Auto-actualización cada 10 segundos...');
         loadSensorData();
-      }, 5000);
+      }, 10000);
       return () => clearInterval(interval);
     }
   }, [currentUser]);
@@ -102,6 +103,7 @@ const DashboardComplete = () => {
 
       if (isInitialLoad || hasNewData) {
         console.log('🎨 Recreando gráficos con datos filtrados...');
+        processHourlyData();
         createInitialCharts();
       }
 
@@ -121,7 +123,89 @@ const DashboardComplete = () => {
     }
   }, [filteredData]);
 
-  // NUEVA: Función para aplicar filtros de tiempo
+  // NUEVA: Función para procesar datos por hora
+  const processHourlyData = () => {
+    if (!filteredData || filteredData.length === 0) {
+      setHourlyData({ temperatura: [], humedad: [], peso: [] });
+      return;
+    }
+
+    console.log('📊 Procesando datos por hora...');
+
+    // Agrupar datos por hora
+    const groupByHour = (data, field) => {
+      const grouped = {};
+      
+      data.forEach(item => {
+        if (item[field] !== null && item[field] !== undefined) {
+          const date = ensureDate(item.fecha);
+          const hourKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:00`;
+          
+          if (!grouped[hourKey]) {
+            grouped[hourKey] = {
+              fecha: hourKey,
+              valores: [],
+              tipos: {}
+            };
+          }
+          
+          grouped[hourKey].valores.push(item[field]);
+          
+          // Agrupar por tipo para temperatura y humedad
+          if (!grouped[hourKey].tipos[item.tipo]) {
+            grouped[hourKey].tipos[item.tipo] = [];
+          }
+          grouped[hourKey].tipos[item.tipo].push(item[field]);
+        }
+      });
+
+      // Calcular promedios por hora
+      return Object.keys(grouped)
+        .sort()
+        .map(hourKey => {
+          const group = grouped[hourKey];
+          const result = {
+            fecha: new Date(hourKey + ':00'),
+            fechaStr: hourKey,
+            promedio: group.valores.reduce((sum, val) => sum + val, 0) / group.valores.length,
+            cantidad: group.valores.length
+          };
+
+          // Para temperatura y humedad, calcular promedios por tipo
+          Object.keys(group.tipos).forEach(tipo => {
+            const valores = group.tipos[tipo];
+            result[`promedio_${tipo}`] = valores.reduce((sum, val) => sum + val, 0) / valores.length;
+            result[`cantidad_${tipo}`] = valores.length;
+          });
+
+          return result;
+        });
+    };
+
+    // Procesar datos de temperatura por hora
+    const tempData = groupByHour(filteredData, 'temperatura');
+    
+    // Procesar datos de humedad por hora
+    const humData = groupByHour(filteredData, 'humedad');
+    
+    // Procesar datos de peso por hora (solo interno)
+    const pesoDataFiltered = filteredData.filter(d => d.tipo === 'interno' && d.peso !== null);
+    const pesoData = groupByHour(pesoDataFiltered, 'peso');
+
+    console.log('📊 Datos procesados por hora:', {
+      temperatura: tempData.length,
+      humedad: humData.length,
+      peso: pesoData.length
+    });
+
+    setHourlyData({
+      temperatura: tempData,
+      humedad: humData,
+      peso: pesoData
+    });
+  };
+
+  // Función para aplicar filtros de tiempo
   const applyTimeFilter = () => {
     console.log(`🔍 Aplicando filtro: ${timeFilter}`);
     
@@ -147,7 +231,7 @@ const DashboardComplete = () => {
     } else if (customDateRange.start && customDateRange.end) {
       const startDate = new Date(customDateRange.start);
       const endDate = new Date(customDateRange.end);
-      endDate.setHours(23, 59, 59, 999); // Incluir todo el día final
+      endDate.setHours(23, 59, 59, 999);
       
       filtered = sensorData.filter(item => {
         const itemDate = ensureDate(item.fecha);
@@ -170,13 +254,13 @@ const DashboardComplete = () => {
     });
   };
 
-  // NUEVA: Función para cambiar filtro de tiempo
+  // Función para cambiar filtro de tiempo
   const handleTimeFilterChange = (filterKey) => {
     console.log(`🔄 Cambiando filtro a: ${filterKey}`);
     setTimeFilter(filterKey);
   };
 
-  // NUEVA: Función para aplicar rango personalizado
+  // Función para aplicar rango personalizado
   const handleCustomDateRange = (start, end) => {
     setCustomDateRange({ start, end });
     setTimeFilter('personalizado');
@@ -195,34 +279,34 @@ const DashboardComplete = () => {
       }
     });
 
-    // Crear nuevos gráficos con datos filtrados
+    // Crear nuevos gráficos con datos horarios
     setTimeout(() => {
       try {
-        if (temperaturaChartRef.current) {
+        if (temperaturaChartRef.current && hourlyData.temperatura.length > 0) {
           const existingChart = Chart.Chart.getChart(temperaturaChartRef.current);
           if (existingChart) {
             existingChart.destroy();
           }
           const ctx = temperaturaChartRef.current.getContext('2d');
-          chartInstances.current.temperatura = createChartJSInstance(ctx, filteredData, 'temperatura');
+          chartInstances.current.temperatura = createChartJSInstance(ctx, hourlyData.temperatura, 'temperatura');
         }
         
-        if (humedadChartRef.current) {
+        if (humedadChartRef.current && hourlyData.humedad.length > 0) {
           const existingChart = Chart.Chart.getChart(humedadChartRef.current);
           if (existingChart) {
             existingChart.destroy();
           }
           const ctx = humedadChartRef.current.getContext('2d');
-          chartInstances.current.humedad = createChartJSInstance(ctx, filteredData, 'humedad');
+          chartInstances.current.humedad = createChartJSInstance(ctx, hourlyData.humedad, 'humedad');
         }
         
-        if (pesoChartRef.current) {
+        if (pesoChartRef.current && hourlyData.peso.length > 0) {
           const existingChart = Chart.Chart.getChart(pesoChartRef.current);
           if (existingChart) {
             existingChart.destroy();
           }
           const ctx = pesoChartRef.current.getContext('2d');
-          chartInstances.current.peso = createChartJSInstance(ctx, filteredData, 'peso');
+          chartInstances.current.peso = createChartJSInstance(ctx, hourlyData.peso, 'peso');
         }
       } catch (error) {
         console.error('Error creando gráficos:', error);
@@ -299,7 +383,7 @@ const DashboardComplete = () => {
         });
       }
 
-      // Cargar datos de sensores (TODOS los datos disponibles, se filtrarán después)
+      // Cargar datos de sensores
       await loadSensorData();
 
     } catch (err) {
@@ -313,7 +397,7 @@ const DashboardComplete = () => {
     }
   };
 
-  // Función MEJORADA para cargar TODOS los datos reales disponibles (sin filtrar por tiempo)
+  // Función MEJORADA para cargar TODOS los datos reales disponibles
   const loadSensorData = async () => {
     setIsLoadingData(true);
     
@@ -321,7 +405,7 @@ const DashboardComplete = () => {
       const startTime = new Date();
       console.log('📡 [' + startTime.toLocaleTimeString() + '] Cargando TODOS los datos disponibles...');
       
-      // Intentar primero con el endpoint específico del dashboard (cargar MÁS datos)
+      // Intentar primero con el endpoint específico del dashboard
       try {
         const dashboardResponse = await dashboard.getSensorData(8760); // 8760 horas = 1 año completo
         console.log('📊 Respuesta dashboard:', {
@@ -336,7 +420,7 @@ const DashboardComplete = () => {
               ...item,
               fecha: ensureDate(item.fecha)
             }))
-            .sort((a, b) => a.fecha.getTime() - b.fecha.getTime()); // Orden cronológico
+            .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
           
           // Crear un hash de los datos para detectar cambios reales
           const newDataHash = JSON.stringify(datosReales.map(d => ({ id: d.id, fecha: d.fecha.getTime() })));
@@ -349,7 +433,6 @@ const DashboardComplete = () => {
             hashIgual: dataHash === newDataHash
           });
           
-          // Solo actualizar si los datos realmente cambiaron
           if (dataHash !== newDataHash) {
             console.log('✅ DATOS NUEVOS DETECTADOS - Actualizando dashboard');
             
@@ -357,13 +440,11 @@ const DashboardComplete = () => {
             setDataHash(newDataHash);
             setLastUpdateTime(new Date());
             setDataSourceInfo(`Dashboard API - ${datosReales.length} registros totales`);
-            
-            // No mostrar alerta aquí, se mostrará después del filtro
           } else {
             console.log('⏸️ Mismos datos - Sin cambios detectados');
           }
           
-          return; // Salir exitosamente
+          return;
         } else {
           console.warn('⚠️ Dashboard API no devolvió datos válidos');
         }
@@ -374,7 +455,7 @@ const DashboardComplete = () => {
       // Fallback: endpoint de mensajes
       try {
         console.log('🔄 Fallback: Intentando con endpoint de mensajes...');
-        const mensajesResponse = await mensajes.getRecientes(8760); // 8760 horas = 1 año
+        const mensajesResponse = await mensajes.getRecientes(8760);
         console.log('📊 Respuesta mensajes:', {
           timestamp: new Date().toLocaleTimeString(),
           totalMensajes: mensajesResponse?.data?.length || 0
@@ -384,11 +465,9 @@ const DashboardComplete = () => {
           const processedData = processSensorMessages(mensajesResponse.data);
           
           if (processedData.length > 0) {
-            // Tomar TODOS los datos procesados
             const todosLosDatos = processedData
-              .sort((a, b) => a.fecha.getTime() - b.fecha.getTime()); // Orden cronológico
+              .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
             
-            // Crear hash para detectar cambios
             const newDataHash = JSON.stringify(todosLosDatos.map(d => ({ id: d.id, fecha: d.fecha.getTime() })));
             
             if (dataHash !== newDataHash) {
@@ -402,14 +481,13 @@ const DashboardComplete = () => {
               console.log('⏸️ Mismos datos desde mensajes - Sin cambios');
             }
             
-            return; // Salir exitosamente
+            return;
           }
         }
       } catch (mensajesError) {
         console.warn('⚠️ Error en mensajes API:', mensajesError.message);
       }
       
-      // Si llegamos aquí, no hay datos disponibles
       console.log('❌ No se encontraron datos en ningún endpoint');
       if (sensorData.length === 0) {
         setSensorData([]);
@@ -431,7 +509,7 @@ const DashboardComplete = () => {
     }
   };
 
-  // Función para procesar mensajes (CORREGIDA para incluir TODOS los nodos con datos de sensores)
+  // Función para procesar mensajes
   const processSensorMessages = (messages) => {
     if (!messages || !Array.isArray(messages)) {
       console.warn('⚠️ Mensajes inválidos:', messages);
@@ -440,12 +518,10 @@ const DashboardComplete = () => {
 
     console.log('🔄 Procesando', messages.length, 'mensajes para obtener TODOS los datos...');
     
-    // CORREGIDO: Definir todos los nodos que pueden tener datos de sensores
     const nodoInterno = 'NODO-BEF8C985-0FF3-4874-935B-40AA8A235FF7';
     const nodoExterno = 'NODO-B5B3ABC4-E0CE-4662-ACB3-7A631C12394A';
-    const nodoReal = 'NODO-7881883A-97A5-47E0-869C-753E99E1B168'; // TU NODO REAL
+    const nodoReal = 'NODO-7881883A-97A5-47E0-869C-753E99E1B168';
     
-    // Mostrar todos los nodos únicos disponibles
     const nodosUnicos = [...new Set(messages.map(m => m.nodo_id))];
     console.log('📋 Nodos únicos en mensajes:', nodosUnicos);
     
@@ -453,7 +529,6 @@ const DashboardComplete = () => {
       .filter(msg => {
         const hasPayload = msg.payload && typeof msg.payload === 'object';
         
-        // CORREGIDO: Aceptar CUALQUIER nodo que tenga datos de sensores
         const hasSensorData = hasPayload && (
           msg.payload.temperatura !== undefined || 
           msg.payload.humedad !== undefined ||
@@ -463,7 +538,7 @@ const DashboardComplete = () => {
           msg.payload.weight !== undefined
         );
         
-        return hasPayload && hasSensorData; // ACEPTAR TODOS LOS NODOS CON DATOS
+        return hasPayload && hasSensorData;
       })
       .map(msg => {
         const payload = msg.payload;
@@ -471,16 +546,14 @@ const DashboardComplete = () => {
         const humedad = payload.humedad || payload.humidity || null;
         const peso = payload.peso || payload.weight || null;
         
-        // CORREGIDO: Determinar el tipo según el nodo o por defecto
         let tipo = 'sensor';
         if (msg.nodo_id === nodoInterno) {
           tipo = 'interno';
         } else if (msg.nodo_id === nodoExterno) {
           tipo = 'externo';
         } else if (msg.nodo_id === nodoReal) {
-          tipo = 'real'; // Nuevo tipo para tu nodo real
+          tipo = 'real';
         } else {
-          // Para cualquier otro nodo, determinar tipo por presencia de peso
           tipo = peso !== null ? 'interno' : 'externo';
         }
         
@@ -501,7 +574,7 @@ const DashboardComplete = () => {
       .filter(item => {
         return item.temperatura !== null || item.humedad !== null || item.peso !== null;
       })
-      .sort((a, b) => a.fecha.getTime() - b.fecha.getTime()); // Orden cronológico
+      .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
 
     console.log('✅ Mensajes procesados (TODOS los datos):', sensorMessages.length);
     console.log('📊 Desglose por tipo:', {
@@ -519,7 +592,7 @@ const DashboardComplete = () => {
     loadDashboardData();
   };
 
-  // Función para crear gráficos con Chart.js - Versión optimizada
+  // Función para crear gráficos con Chart.js - MODIFICADA PARA DATOS POR HORA
   const createSpecificChart = (data, chartType, title, chartId) => {
     if (!data || data.length < 2) {
       return (
@@ -606,21 +679,16 @@ const DashboardComplete = () => {
           border: '1px solid rgba(229, 231, 235, 0.5)'
         }}>
           <span style={{ fontSize: '12px', color: '#6b7280' }}>
-            {timeFilters.find(f => f.key === timeFilter)?.label || 'Filtro personalizado'} - {data.length} registros
+            {timeFilters.find(f => f.key === timeFilter)?.label || 'Filtro personalizado'} - {data.length} horas con datos
           </span>
         </div>
       </div>
     );
   };
 
-  // Función auxiliar para crear instancias de Chart.js
+  // Función auxiliar para crear instancias de Chart.js - MODIFICADA PARA DATOS POR HORA
   const createChartJSInstance = (ctx, data, chartType) => {
     if (!data || data.length < 2) return null;
-
-    const dataWithValidDates = data.map(item => ({
-      ...item,
-      fecha: ensureDate(item.fecha)
-    }));
 
     let datasets = [];
     let labels = [];
@@ -628,28 +696,19 @@ const DashboardComplete = () => {
     
     switch (chartType) {
       case 'temperatura':
-        const datosInternos = dataWithValidDates.filter(d => d.tipo === 'interno' && d.temperatura !== null);
-        const datosExternos = dataWithValidDates.filter(d => d.tipo === 'externo' && d.temperatura !== null);
+        labels = data.map(d => d.fechaStr);
+        yAxisLabel = 'Temperatura Promedio por Hora (°C)';
         
-        labels = [...datosInternos, ...datosExternos]
-          .map(d => d.fecha.toLocaleString('es-CL', { 
-            month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' 
-          }))
-          .filter((value, index, self) => self.indexOf(value) === index)
-          .sort();
+        // Separar datos internos y externos
+        const hasInterno = data.some(d => d.promedio_interno !== undefined);
+        const hasExterno = data.some(d => d.promedio_externo !== undefined);
         
-        yAxisLabel = 'Temperatura (°C)';
-        datasets = [
-          {
-            label: 'Temperatura Interna',
-            data: labels.map(label => {
-              const match = datosInternos.find(d => 
-                d.fecha.toLocaleString('es-CL', { 
-                  month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' 
-                }) === label
-              );
-              return match ? match.temperatura : null;
-            }),
+        datasets = [];
+        
+        if (hasInterno) {
+          datasets.push({
+            label: 'Temperatura Interna (Promedio/Hora)',
+            data: data.map(d => d.promedio_interno || null),
             borderColor: '#ef4444',
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
             tension: 0.4,
@@ -659,17 +718,13 @@ const DashboardComplete = () => {
             pointBorderColor: '#ffffff',
             pointBorderWidth: 2,
             fill: false
-          },
-          {
-            label: 'Temperatura Externa',
-            data: labels.map(label => {
-              const match = datosExternos.find(d => 
-                d.fecha.toLocaleString('es-CL', { 
-                  month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' 
-                }) === label
-              );
-              return match ? match.temperatura : null;
-            }),
+          });
+        }
+        
+        if (hasExterno) {
+          datasets.push({
+            label: 'Temperatura Externa (Promedio/Hora)',
+            data: data.map(d => d.promedio_externo || null),
             borderColor: '#3b82f6',
             backgroundColor: 'rgba(59, 130, 246, 0.1)',
             tension: 0.4,
@@ -679,33 +734,23 @@ const DashboardComplete = () => {
             pointBorderColor: '#ffffff',
             pointBorderWidth: 2,
             fill: false
-          }
-        ];
+          });
+        }
         break;
         
       case 'humedad':
-        const datosInternosHum = dataWithValidDates.filter(d => d.tipo === 'interno' && d.humedad !== null);
-        const datosExternosHum = dataWithValidDates.filter(d => d.tipo === 'externo' && d.humedad !== null);
+        labels = data.map(d => d.fechaStr);
+        yAxisLabel = 'Humedad Promedio por Hora (%)';
         
-        labels = [...datosInternosHum, ...datosExternosHum]
-          .map(d => d.fecha.toLocaleString('es-CL', { 
-            month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' 
-          }))
-          .filter((value, index, self) => self.indexOf(value) === index)
-          .sort();
+        const hasInternoHum = data.some(d => d.promedio_interno !== undefined);
+        const hasExternoHum = data.some(d => d.promedio_externo !== undefined);
         
-        yAxisLabel = 'Humedad (%)';
-        datasets = [
-          {
-            label: 'Humedad Interna',
-            data: labels.map(label => {
-              const match = datosInternosHum.find(d => 
-                d.fecha.toLocaleString('es-CL', { 
-                  month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' 
-                }) === label
-              );
-              return match ? match.humedad : null;
-            }),
+        datasets = [];
+        
+        if (hasInternoHum) {
+          datasets.push({
+            label: 'Humedad Interna (Promedio/Hora)',
+            data: data.map(d => d.promedio_interno || null),
             borderColor: '#10b981',
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
             tension: 0.4,
@@ -715,17 +760,13 @@ const DashboardComplete = () => {
             pointBorderColor: '#ffffff',
             pointBorderWidth: 2,
             fill: false
-          },
-          {
-            label: 'Humedad Externa',
-            data: labels.map(label => {
-              const match = datosExternosHum.find(d => 
-                d.fecha.toLocaleString('es-CL', { 
-                  month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' 
-                }) === label
-              );
-              return match ? match.humedad : null;
-            }),
+          });
+        }
+        
+        if (hasExternoHum) {
+          datasets.push({
+            label: 'Humedad Externa (Promedio/Hora)',
+            data: data.map(d => d.promedio_externo || null),
             borderColor: '#8b5cf6',
             backgroundColor: 'rgba(139, 92, 246, 0.1)',
             tension: 0.4,
@@ -735,22 +776,18 @@ const DashboardComplete = () => {
             pointBorderColor: '#ffffff',
             pointBorderWidth: 2,
             fill: false
-          }
-        ];
+          });
+        }
         break;
         
       case 'peso':
-        const datosPeso = dataWithValidDates.filter(d => d.tipo === 'interno' && d.peso !== null);
+        labels = data.map(d => d.fechaStr);
+        yAxisLabel = 'Peso Promedio por Hora (kg)';
         
-        labels = datosPeso.map(d => d.fecha.toLocaleString('es-CL', { 
-          month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' 
-        }));
-        
-        yAxisLabel = 'Peso (g)';
         datasets = [
           {
-            label: 'Peso de la Colmena',
-            data: datosPeso.map(d => d.peso),
+            label: 'Peso de la Colmena (kg/hora)',
+            data: data.map(d => d.promedio ? (d.promedio / 1000).toFixed(3) : null), // CONVERSIÓN A KG
             borderColor: '#f59e0b',
             backgroundColor: 'rgba(245, 158, 11, 0.1)',
             tension: 0.4,
@@ -775,7 +812,7 @@ const DashboardComplete = () => {
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         animation: {
-          duration: 300 // Animación suave para cambios de filtro
+          duration: 300
         },
         plugins: {
           legend: { position: 'top' },
@@ -787,7 +824,7 @@ const DashboardComplete = () => {
                 if (label) label += ': ';
                 if (context.parsed.y !== null) {
                   if (chartType === 'peso') {
-                    label += context.parsed.y.toFixed(0) + 'g';
+                    label += context.parsed.y + 'kg';
                   } else if (chartType === 'temperatura') {
                     label += context.parsed.y.toFixed(1) + '°C';
                   } else {
@@ -801,7 +838,7 @@ const DashboardComplete = () => {
         },
         scales: {
           x: {
-            title: { display: true, text: 'Tiempo' },
+            title: { display: true, text: 'Hora' },
             ticks: { 
               maxRotation: 45, 
               minRotation: 45,
@@ -818,7 +855,7 @@ const DashboardComplete = () => {
     return new Chart.Chart(ctx, config);
   };
 
-  // Función para crear tabla de datos (modificada para usar datos filtrados)
+  // Función para crear tabla de datos - MODIFICADA PARA DATOS POR HORA
   const createDataTable = (data, tableType, title) => {
     if (!data || data.length === 0) {
       return (
@@ -851,43 +888,31 @@ const DashboardComplete = () => {
     
     switch (tableType) {
       case 'temperatura':
-        const datosInternos = data.filter(d => d.tipo === 'interno' && d.temperatura !== null).slice(-20);
-        const datosExternos = data.filter(d => d.tipo === 'externo' && d.temperatura !== null).slice(-20);
-        
-        datosTabla = [...datosInternos, ...datosExternos]
-          .sort((a, b) => ensureDate(b.fecha).getTime() - ensureDate(a.fecha).getTime())
-          .slice(0, 30);
-          
+        datosTabla = data.slice(-30); // Últimas 30 horas
         columnas = [
-          { key: 'fecha', title: 'Fecha', format: (d) => ensureDate(d.fecha).toLocaleString('es-CL') },
-          { key: 'tipo', title: 'Ubicación', format: (d) => d.tipo === 'interno' ? 'Interna' : 'Externa' },
-          { key: 'temperatura', title: 'Temperatura (°C)', format: (d) => `${d.temperatura.toFixed(1)}°C` }
+          { key: 'fechaStr', title: 'Hora', format: (d) => d.fechaStr },
+          { key: 'promedio_interno', title: 'Temp. Interna (°C)', format: (d) => d.promedio_interno ? `${d.promedio_interno.toFixed(1)}°C` : 'N/A' },
+          { key: 'promedio_externo', title: 'Temp. Externa (°C)', format: (d) => d.promedio_externo ? `${d.promedio_externo.toFixed(1)}°C` : 'N/A' },
+          { key: 'cantidad', title: 'Lecturas', format: (d) => d.cantidad }
         ];
         break;
         
       case 'humedad':
-        const datosInternosHum = data.filter(d => d.tipo === 'interno' && d.humedad !== null).slice(-20);
-        const datosExternosHum = data.filter(d => d.tipo === 'externo' && d.humedad !== null).slice(-20);
-        
-        datosTabla = [...datosInternosHum, ...datosExternosHum]
-          .sort((a, b) => ensureDate(b.fecha).getTime() - ensureDate(a.fecha).getTime())
-          .slice(0, 30);
-          
+        datosTabla = data.slice(-30); // Últimas 30 horas
         columnas = [
-          { key: 'fecha', title: 'Fecha', format: (d) => ensureDate(d.fecha).toLocaleString('es-CL') },
-          { key: 'tipo', title: 'Ubicación', format: (d) => d.tipo === 'interno' ? 'Interna' : 'Externa' },
-          { key: 'humedad', title: 'Humedad (%)', format: (d) => `${d.humedad.toFixed(1)}%` }
+          { key: 'fechaStr', title: 'Hora', format: (d) => d.fechaStr },
+          { key: 'promedio_interno', title: 'Hum. Interna (%)', format: (d) => d.promedio_interno ? `${d.promedio_interno.toFixed(1)}%` : 'N/A' },
+          { key: 'promedio_externo', title: 'Hum. Externa (%)', format: (d) => d.promedio_externo ? `${d.promedio_externo.toFixed(1)}%` : 'N/A' },
+          { key: 'cantidad', title: 'Lecturas', format: (d) => d.cantidad }
         ];
         break;
         
       case 'peso':
-        datosTabla = data.filter(d => d.tipo === 'interno' && d.peso !== null)
-          .sort((a, b) => ensureDate(b.fecha).getTime() - ensureDate(a.fecha).getTime())
-          .slice(0, 30);
-          
+        datosTabla = data.slice(-30); // Últimas 30 horas
         columnas = [
-          { key: 'fecha', title: 'Fecha', format: (d) => ensureDate(d.fecha).toLocaleString('es-CL') },
-          { key: 'peso', title: 'Peso (g)', format: (d) => `${d.peso.toFixed(0)}g` }
+          { key: 'fechaStr', title: 'Hora', format: (d) => d.fechaStr },
+          { key: 'promedio', title: 'Peso (kg)', format: (d) => d.promedio ? `${(d.promedio / 1000).toFixed(3)}kg` : 'N/A' },
+          { key: 'cantidad', title: 'Lecturas', format: (d) => d.cantidad }
         ];
         break;
     }
@@ -912,7 +937,7 @@ const DashboardComplete = () => {
             📊 {title}
           </h4>
           <p style={{ color: '#6b7280', margin: 0 }}>
-            No hay datos de {tableType} para el período seleccionado
+            No hay datos de {tableType} por hora para el período seleccionado
           </p>
         </div>
       );
@@ -945,7 +970,7 @@ const DashboardComplete = () => {
             padding: '2px 8px',
             borderRadius: '12px'
           }}>
-            {timeFilters.find(f => f.key === timeFilter)?.label || 'Personalizado'} - {datosTabla.length} registros
+            {timeFilters.find(f => f.key === timeFilter)?.label || 'Personalizado'} - {datosTabla.length} horas
           </span>
         </h4>
         
@@ -993,7 +1018,7 @@ const DashboardComplete = () => {
     );
   };
 
-  // NUEVO: Componente de filtros de tiempo
+  // Componente de filtros de tiempo
   const TimeFiltersComponent = () => {
     const isMobile = window.innerWidth <= 768;
     
@@ -1022,7 +1047,7 @@ const DashboardComplete = () => {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text'
             }}>
-              🔍 Filtros de Tiempo
+              🔍 Filtros de Tiempo (Datos por Hora)
             </h3>
             <p style={{
               margin: 0,
@@ -1030,7 +1055,7 @@ const DashboardComplete = () => {
               color: '#6b7280',
               fontWeight: '500'
             }}>
-              {filteredData.length} registros de {sensorData.length} totales
+              {filteredData.length} registros → {hourlyData.temperatura.length || hourlyData.humedad.length || hourlyData.peso.length} horas procesadas
             </p>
           </div>
 
@@ -1181,13 +1206,16 @@ const DashboardComplete = () => {
               color: '#166534'
             }}>
               <div>
-                📊 <strong>Registros mostrados:</strong> {filteredData.length}
+                📊 <strong>Registros originales:</strong> {filteredData.length}
               </div>
               <div>
-                🕒 <strong>Primer registro:</strong> {ensureDate(filteredData[0]?.fecha).toLocaleString('es-CL')}
+                🕒 <strong>Horas con temperatura:</strong> {hourlyData.temperatura.length}
               </div>
               <div>
-                🕐 <strong>Último registro:</strong> {ensureDate(filteredData[filteredData.length - 1]?.fecha).toLocaleString('es-CL')}
+                💧 <strong>Horas con humedad:</strong> {hourlyData.humedad.length}
+              </div>
+              <div>
+                ⚖️ <strong>Horas con peso:</strong> {hourlyData.peso.length}
               </div>
               <div>
                 🔍 <strong>Filtro activo:</strong> {timeFilters.find(f => f.key === timeFilter)?.label || 'Personalizado'}
@@ -1200,7 +1228,7 @@ const DashboardComplete = () => {
   };
 
   if (isLoading || !currentUser) {
-    return <Loading message="Cargando dashboard con filtros de tiempo..." />;
+    return <Loading message="Cargando dashboard con datos por hora..." />;
   }
 
   const latestData = filteredData.length > 0 ? filteredData[filteredData.length - 1] : null;
@@ -1240,7 +1268,7 @@ const DashboardComplete = () => {
             lineHeight: '1.2',
             letterSpacing: '-0.025em'
           }}>
-            🏠 Dashboard SmartBee - Filtros Temporales
+            🏠 SmartBee - Datos por Hora
           </h1>
           <h2 style={{ 
             margin: '8px 0 0 0',
@@ -1302,7 +1330,7 @@ const DashboardComplete = () => {
               color: '#166534',
               width: 'fit-content'
             }}>
-              📊 <strong>Total:</strong> {sensorData.length} registros
+              📊 <strong>Total:</strong> {sensorData.length} registros → Peso en KG
             </span>
           </div>
         </div>
@@ -1331,7 +1359,7 @@ const DashboardComplete = () => {
         </button>
       </div>
 
-      {/* NUEVO: Componente de Filtros de Tiempo */}
+      {/* Componente de Filtros de Tiempo */}
       <TimeFiltersComponent />
       
       {alertMessage && (
@@ -1358,7 +1386,7 @@ const DashboardComplete = () => {
         </div>
       )}
 
-      {/* Grid de estadísticas mejorado con datos filtrados */}
+      {/* Grid de estadísticas mejorado con datos por hora */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)',
@@ -1382,9 +1410,9 @@ const DashboardComplete = () => {
             small: true
           },
           { 
-            title: '🔥 Peso FILTRADO', 
+            title: '⚖️ Peso ÚLTIMO (KG)', 
             value: latestData && latestData.peso !== null ? 
-              `${latestData.peso.toFixed(0)}g [${latestData.fecha.toLocaleTimeString()}]` : 
+              `${(latestData.peso / 1000).toFixed(3)}kg [${latestData.fecha.toLocaleTimeString()}]` : 
               'Sin datos en período', 
             icon: '⚖️', 
             color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
@@ -1392,7 +1420,7 @@ const DashboardComplete = () => {
             span: isMobile ? 2 : 1
           },
           { 
-            title: '🔥 Humedad FILTRADA', 
+            title: '💧 Humedad ÚLTIMO', 
             value: latestData && latestData.humedad !== null ? 
               `${latestData.humedad.toFixed(1)}% [${latestData.fecha.toLocaleTimeString()}]` : 
               'Sin datos en período', 
@@ -1401,7 +1429,7 @@ const DashboardComplete = () => {
             bgColor: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
           },
           { 
-            title: '🔥 Temperatura FILTRADA', 
+            title: '🌡️ Temperatura ÚLTIMO', 
             value: latestData && latestData.temperatura !== null ? 
               `${latestData.temperatura.toFixed(1)}°C [${latestData.fecha.toLocaleTimeString()}]` : 
               'Sin datos en período', 
@@ -1453,7 +1481,7 @@ const DashboardComplete = () => {
         ))}
       </div>
 
-      {/* Gráficos con datos filtrados */}
+      {/* Gráficos con datos por hora */}
       {filteredData.length === 0 ? (
         <div style={{
           background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
@@ -1506,7 +1534,7 @@ const DashboardComplete = () => {
           gap: '32px',
           marginBottom: '32px'
         }}>
-          {/* Información de datos filtrados - MEJORADA */}
+          {/* Información de datos procesados por hora */}
           <div style={{
             background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
             padding: '20px',
@@ -1520,7 +1548,7 @@ const DashboardComplete = () => {
               fontSize: '1.2rem',
               fontWeight: '700'
             }}>
-              📊 Datos Filtrados - {timeFilters.find(f => f.key === timeFilter)?.label || 'Rango Personalizado'}
+              📊 Datos Procesados por Hora - {timeFilters.find(f => f.key === timeFilter)?.label || 'Rango Personalizado'}
             </h3>
             <div style={{
               display: 'grid',
@@ -1534,8 +1562,8 @@ const DashboardComplete = () => {
                 borderRadius: '8px',
                 border: '1px solid rgba(34, 197, 94, 0.2)'
               }}>
-                <strong>📊 Registros mostrados:</strong><br/>
-                {filteredData.length} de {sensorData.length} totales
+                <strong>📊 Registros originales:</strong><br/>
+                {filteredData.length} lecturas individuales
               </div>
               <div style={{
                 background: 'rgba(255, 255, 255, 0.8)',
@@ -1543,11 +1571,8 @@ const DashboardComplete = () => {
                 borderRadius: '8px',
                 border: '1px solid rgba(34, 197, 94, 0.2)'
               }}>
-                <strong>🕒 Período:</strong><br/>
-                {filteredData.length > 0 ? 
-                  `${ensureDate(filteredData[0].fecha).toLocaleDateString()} - ${ensureDate(filteredData[filteredData.length - 1].fecha).toLocaleDateString()}` :
-                  'Sin datos'
-                }
+                <strong>🌡️ Horas con temperatura:</strong><br/>
+                {hourlyData.temperatura.length} horas procesadas
               </div>
               <div style={{
                 background: 'rgba(255, 255, 255, 0.8)',
@@ -1555,8 +1580,17 @@ const DashboardComplete = () => {
                 borderRadius: '8px',
                 border: '1px solid rgba(34, 197, 94, 0.2)'
               }}>
-                <strong>🔍 Filtro activo:</strong><br/>
-                {timeFilters.find(f => f.key === timeFilter)?.label || 'Personalizado'}
+                <strong>💧 Horas con humedad:</strong><br/>
+                {hourlyData.humedad.length} horas procesadas
+              </div>
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.8)',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(34, 197, 94, 0.2)'
+              }}>
+                <strong>⚖️ Horas con peso:</strong><br/>
+                {hourlyData.peso.length} horas (convertido a KG)
               </div>
               <div style={{
                 background: 'rgba(255, 255, 255, 0.8)',
@@ -1574,31 +1608,31 @@ const DashboardComplete = () => {
               fontSize: '0.9rem',
               fontWeight: '500'
             }}>
-              🔄 Auto-actualización cada 10 segundos • Filtros dinámicos • Gráficos responsivos
+              🔄 Auto-actualización cada 10 segundos • Un dato por hora • Peso convertido de gramos a kilogramos
             </p>
           </div>
 
-          {/* Gráfico de Temperatura Interna/Externa */}
+          {/* Gráfico de Temperatura Interna/Externa por Hora */}
           <div>
-            {createSpecificChart(filteredData, 'temperatura', 'Temperatura Interna vs Externa', 'temp-chart')}
-            {createDataTable(filteredData, 'temperatura', 'Mediciones de Temperatura')}
+            {createSpecificChart(hourlyData.temperatura, 'temperatura', 'Temperatura Interna vs Externa (Promedio por Hora)', 'temp-chart')}
+            {createDataTable(hourlyData.temperatura, 'temperatura', 'Temperaturas por Hora')}
           </div>
 
-          {/* Gráfico de Humedad Interna/Externa */}
+          {/* Gráfico de Humedad Interna/Externa por Hora */}
           <div>
-            {createSpecificChart(filteredData, 'humedad', 'Humedad Interna vs Externa', 'hum-chart')}
-            {createDataTable(filteredData, 'humedad', 'Mediciones de Humedad')}
+            {createSpecificChart(hourlyData.humedad, 'humedad', 'Humedad Interna vs Externa (Promedio por Hora)', 'hum-chart')}
+            {createDataTable(hourlyData.humedad, 'humedad', 'Humedad por Hora')}
           </div>
 
-          {/* Gráfico de Peso */}
+          {/* Gráfico de Peso por Hora (en KG) */}
           <div>
-            {createSpecificChart(filteredData, 'peso', 'Monitoreo de Peso', 'peso-chart')}
-            {createDataTable(filteredData, 'peso', 'Mediciones de Peso')}
+            {createSpecificChart(hourlyData.peso, 'peso', 'Monitoreo de Peso (Promedio por Hora en KG)', 'peso-chart')}
+            {createDataTable(hourlyData.peso, 'peso', 'Peso por Hora (Convertido a KG)')}
           </div>
         </div>
       )}
 
-      {/* Panel de información del sistema mejorado con filtros */}
+      {/* Panel de información del sistema mejorado */}
       <div style={{
         background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
         padding: '20px 24px',
@@ -1624,7 +1658,7 @@ const DashboardComplete = () => {
             borderRadius: '20px',
             fontWeight: '600'
           }}>
-            📊 <strong>Datos totales:</strong> {sensorData.length} registros
+            📊 <strong>Datos originales:</strong> {sensorData.length} registros
           </div>
           <div style={{ 
             display: 'flex', 
@@ -1636,6 +1670,28 @@ const DashboardComplete = () => {
             fontWeight: '600'
           }}>
             🔍 <strong>Filtrados:</strong> {filteredData.length} registros
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px',
+            padding: '8px 12px',
+            background: 'rgba(255, 255, 255, 0.8)',
+            borderRadius: '20px',
+            fontWeight: '600'
+          }}>
+            ⏰ <strong>Horas procesadas:</strong> {Math.max(hourlyData.temperatura.length, hourlyData.humedad.length, hourlyData.peso.length)}
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px',
+            padding: '8px 12px',
+            background: 'rgba(255, 255, 255, 0.8)',
+            borderRadius: '20px',
+            fontWeight: '600'
+          }}>
+            ⚖️ <strong>Conversión:</strong> Gramos → Kilogramos
           </div>
           <div style={{ 
             display: 'flex', 
@@ -1668,17 +1724,6 @@ const DashboardComplete = () => {
             borderRadius: '20px',
             fontWeight: '600'
           }}>
-            ⚡ <strong>Filtros:</strong> Dinámicos y responsivos
-          </div>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px',
-            padding: '8px 12px',
-            background: 'rgba(255, 255, 255, 0.8)',
-            borderRadius: '20px',
-            fontWeight: '600'
-          }}>
             👤 <strong>Usuario:</strong> {currentUser.nombre} {currentUser.apellido}
           </div>
           <div style={{ 
@@ -1698,7 +1743,7 @@ const DashboardComplete = () => {
         </div>
       </div>
 
-      {/* Footer con información adicional y filtros */}
+      {/* Footer con información adicional */}
       <div style={{
         marginTop: '32px',
         padding: '24px',
@@ -1732,7 +1777,7 @@ const DashboardComplete = () => {
             color: '#6b7280',
             fontWeight: '500'
           }}>
-            🔍 <span>Filtros Temporales Avanzados</span>
+            📊 <span>Datos Agrupados por Hora</span>
           </div>
           <div style={{ 
             display: 'flex', 
@@ -1741,7 +1786,7 @@ const DashboardComplete = () => {
             color: '#6b7280',
             fontWeight: '500'
           }}>
-            📊 <span>Datos en Tiempo Real</span>
+            ⚖️ <span>Peso en Kilogramos</span>
           </div>
           <div style={{ 
             display: 'flex', 
@@ -1750,7 +1795,16 @@ const DashboardComplete = () => {
             color: '#6b7280',
             fontWeight: '500'
           }}>
-            ⚡ <span>Actualización Automática</span>
+            🌡️ <span>Temperatura Interior/Exterior</span>
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px',
+            color: '#6b7280',
+            fontWeight: '500'
+          }}>
+            💧 <span>Humedad Interior/Exterior</span>
           </div>
           <div style={{ 
             display: 'flex', 
@@ -1768,7 +1822,7 @@ const DashboardComplete = () => {
           color: '#9ca3af',
           fontWeight: '500'
         }}>
-          Filtros dinámicos: 1 día, 1 semana, 1 mes, 1 año • Rango personalizado • Auto-actualización cada 10 segundos • Gráficos responsivos
+          Un dato por hora • Temperatura interior/exterior • Humedad interior/exterior • Peso en kilogramos (ej: 1343g → 1.343kg) • Auto-actualización cada 10 segundos
         </p>
       </div>
     </div>
