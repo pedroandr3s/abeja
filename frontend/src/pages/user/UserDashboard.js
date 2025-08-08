@@ -24,7 +24,7 @@ const DashboardComplete = () => {
   const [userColmenas, setUserColmenas] = useState([]);
   const [sensorData, setSensorData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
-  const [hourlyData, setHourlyData] = useState({ temperatura: [], humedad: [], peso: [] });
+  const [processedData, setProcessedData] = useState({ temperatura: [], humedad: [], peso: [] });
   const [alertMessage, setAlertMessage] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -48,12 +48,36 @@ const DashboardComplete = () => {
   const pesoChartRef = useRef(null);
   const chartInstances = useRef({});
 
-  // Definir los filtros de tiempo disponibles
+  // Definir los filtros de tiempo disponibles con agrupación dinámica
   const timeFilters = [
-    { key: '1dia', label: '📅 Último Día', hours: 24 },
-    { key: '1semana', label: '📆 Última Semana', hours: 168 },
-    { key: '1mes', label: '🗓️ Último Mes', hours: 720 },
-    { key: '1año', label: '📊 Último Año', hours: 8760 }
+    { 
+      key: '1dia', 
+      label: '📅 Último Día (30 min)', 
+      hours: 24,
+      grouping: 'media_hora',
+      description: 'Un dato cada 30 minutos'
+    },
+    { 
+      key: '1semana', 
+      label: '📆 Última Semana (Diario)', 
+      hours: 168,
+      grouping: 'diario',
+      description: 'Un dato por día'
+    },
+    { 
+      key: '1mes', 
+      label: '🗓️ Último Mes (Semanal)', 
+      hours: 720,
+      grouping: 'semanal',
+      description: 'Semana 1, 2, 3, 4'
+    },
+    { 
+      key: '1año', 
+      label: '📊 Último Año (Mensual)', 
+      hours: 8760,
+      grouping: 'mensual',
+      description: 'Mes a mes'
+    }
   ];
 
   useEffect(() => {
@@ -102,8 +126,8 @@ const DashboardComplete = () => {
       const hasNewData = filteredData.length !== previousDataLength;
 
       if (isInitialLoad || hasNewData) {
-        console.log('🎨 Recreando gráficos con datos filtrados...');
-        processHourlyData();
+        console.log('🎨 Recreando gráficos con datos agrupados dinámicamente...');
+        processDataByFilter();
         createInitialCharts();
       }
 
@@ -123,86 +147,240 @@ const DashboardComplete = () => {
     }
   }, [filteredData]);
 
-  // NUEVA: Función para procesar datos por hora
-  const processHourlyData = () => {
+  // NUEVA: Función para procesar datos según el filtro seleccionado
+  const processDataByFilter = () => {
     if (!filteredData || filteredData.length === 0) {
-      setHourlyData({ temperatura: [], humedad: [], peso: [] });
+      setProcessedData({ temperatura: [], humedad: [], peso: [] });
       return;
     }
 
-    console.log('📊 Procesando datos por hora...');
+    const selectedFilter = timeFilters.find(f => f.key === timeFilter);
+    const groupingType = selectedFilter ? selectedFilter.grouping : 'diario';
 
-    // Agrupar datos por hora
-    const groupByHour = (data, field) => {
-      const grouped = {};
-      
-      data.forEach(item => {
-        if (item[field] !== null && item[field] !== undefined) {
-          const date = ensureDate(item.fecha);
-          const hourKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:00`;
-          
-          if (!grouped[hourKey]) {
-            grouped[hourKey] = {
-              fecha: hourKey,
-              valores: [],
-              tipos: {}
-            };
-          }
-          
-          grouped[hourKey].valores.push(item[field]);
-          
-          // Agrupar por tipo para temperatura y humedad
-          if (!grouped[hourKey].tipos[item.tipo]) {
-            grouped[hourKey].tipos[item.tipo] = [];
-          }
-          grouped[hourKey].tipos[item.tipo].push(item[field]);
-        }
-      });
+    console.log(`📊 Procesando datos con agrupación: ${groupingType}`);
 
-      // Calcular promedios por hora
-      return Object.keys(grouped)
-        .sort()
-        .map(hourKey => {
-          const group = grouped[hourKey];
-          const result = {
-            fecha: new Date(hourKey + ':00'),
-            fechaStr: hourKey,
-            promedio: group.valores.reduce((sum, val) => sum + val, 0) / group.valores.length,
-            cantidad: group.valores.length
+    let processedTemp = [];
+    let processedHum = [];
+    let processedPeso = [];
+
+    switch (groupingType) {
+      case 'media_hora':
+        processedTemp = groupByHalfHour(filteredData, 'temperatura');
+        processedHum = groupByHalfHour(filteredData, 'humedad');
+        processedPeso = groupByHalfHour(filteredData.filter(d => d.tipo === 'interno' && d.peso !== null), 'peso');
+        break;
+        
+      case 'diario':
+        processedTemp = groupByDay(filteredData, 'temperatura');
+        processedHum = groupByDay(filteredData, 'humedad');
+        processedPeso = groupByDay(filteredData.filter(d => d.tipo === 'interno' && d.peso !== null), 'peso');
+        break;
+        
+      case 'semanal':
+        processedTemp = groupByWeek(filteredData, 'temperatura');
+        processedHum = groupByWeek(filteredData, 'humedad');
+        processedPeso = groupByWeek(filteredData.filter(d => d.tipo === 'interno' && d.peso !== null), 'peso');
+        break;
+        
+      case 'mensual':
+        processedTemp = groupByMonth(filteredData, 'temperatura');
+        processedHum = groupByMonth(filteredData, 'humedad');
+        processedPeso = groupByMonth(filteredData.filter(d => d.tipo === 'interno' && d.peso !== null), 'peso');
+        break;
+        
+      default:
+        // Fallback a agrupación por hora
+        processedTemp = groupByHour(filteredData, 'temperatura');
+        processedHum = groupByHour(filteredData, 'humedad');
+        processedPeso = groupByHour(filteredData.filter(d => d.tipo === 'interno' && d.peso !== null), 'peso');
+    }
+
+    console.log('📊 Datos procesados:', {
+      agrupacion: groupingType,
+      temperatura: processedTemp.length,
+      humedad: processedHum.length,
+      peso: processedPeso.length
+    });
+
+    setProcessedData({
+      temperatura: processedTemp,
+      humedad: processedHum,
+      peso: processedPeso
+    });
+  };
+
+  // Función para agrupar por media hora (30 minutos)
+  const groupByHalfHour = (data, field) => {
+    const grouped = {};
+    
+    data.forEach(item => {
+      if (item[field] !== null && item[field] !== undefined) {
+        const date = ensureDate(item.fecha);
+        const minutes = date.getMinutes();
+        const halfHourMark = minutes < 30 ? 0 : 30;
+        const halfHourKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(halfHourMark).padStart(2, '0')}`;
+        
+        if (!grouped[halfHourKey]) {
+          grouped[halfHourKey] = {
+            fecha: halfHourKey,
+            valores: [],
+            tipos: {}
           };
+        }
+        
+        grouped[halfHourKey].valores.push(item[field]);
+        
+        if (!grouped[halfHourKey].tipos[item.tipo]) {
+          grouped[halfHourKey].tipos[item.tipo] = [];
+        }
+        grouped[halfHourKey].tipos[item.tipo].push(item[field]);
+      }
+    });
 
-          // Para temperatura y humedad, calcular promedios por tipo
-          Object.keys(group.tipos).forEach(tipo => {
-            const valores = group.tipos[tipo];
-            result[`promedio_${tipo}`] = valores.reduce((sum, val) => sum + val, 0) / valores.length;
-            result[`cantidad_${tipo}`] = valores.length;
-          });
+    return processGroupedData(grouped, '30 minutos');
+  };
 
-          return result;
+  // Función para agrupar por día
+  const groupByDay = (data, field) => {
+    const grouped = {};
+    
+    data.forEach(item => {
+      if (item[field] !== null && item[field] !== undefined) {
+        const date = ensureDate(item.fecha);
+        const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        
+        if (!grouped[dayKey]) {
+          grouped[dayKey] = {
+            fecha: dayKey,
+            valores: [],
+            tipos: {}
+          };
+        }
+        
+        grouped[dayKey].valores.push(item[field]);
+        
+        if (!grouped[dayKey].tipos[item.tipo]) {
+          grouped[dayKey].tipos[item.tipo] = [];
+        }
+        grouped[dayKey].tipos[item.tipo].push(item[field]);
+      }
+    });
+
+    return processGroupedData(grouped, 'día');
+  };
+
+  // Función para agrupar por semana
+  const groupByWeek = (data, field) => {
+    const grouped = {};
+    
+    data.forEach(item => {
+      if (item[field] !== null && item[field] !== undefined) {
+        const date = ensureDate(item.fecha);
+        const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+        const weekOfMonth = Math.ceil((date.getDate() + startOfMonth.getDay()) / 7);
+        const weekKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-Semana-${weekOfMonth}`;
+        
+        if (!grouped[weekKey]) {
+          grouped[weekKey] = {
+            fecha: weekKey,
+            valores: [],
+            tipos: {}
+          };
+        }
+        
+        grouped[weekKey].valores.push(item[field]);
+        
+        if (!grouped[weekKey].tipos[item.tipo]) {
+          grouped[weekKey].tipos[item.tipo] = [];
+        }
+        grouped[weekKey].tipos[item.tipo].push(item[field]);
+      }
+    });
+
+    return processGroupedData(grouped, 'semana');
+  };
+
+  // Función para agrupar por mes
+  const groupByMonth = (data, field) => {
+    const grouped = {};
+    
+    data.forEach(item => {
+      if (item[field] !== null && item[field] !== undefined) {
+        const date = ensureDate(item.fecha);
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (!grouped[monthKey]) {
+          grouped[monthKey] = {
+            fecha: monthKey,
+            valores: [],
+            tipos: {}
+          };
+        }
+        
+        grouped[monthKey].valores.push(item[field]);
+        
+        if (!grouped[monthKey].tipos[item.tipo]) {
+          grouped[monthKey].tipos[item.tipo] = [];
+        }
+        grouped[monthKey].tipos[item.tipo].push(item[field]);
+      }
+    });
+
+    return processGroupedData(grouped, 'mes');
+  };
+
+  // Función para agrupar por hora (fallback)
+  const groupByHour = (data, field) => {
+    const grouped = {};
+    
+    data.forEach(item => {
+      if (item[field] !== null && item[field] !== undefined) {
+        const date = ensureDate(item.fecha);
+        const hourKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:00`;
+        
+        if (!grouped[hourKey]) {
+          grouped[hourKey] = {
+            fecha: hourKey,
+            valores: [],
+            tipos: {}
+          };
+        }
+        
+        grouped[hourKey].valores.push(item[field]);
+        
+        if (!grouped[hourKey].tipos[item.tipo]) {
+          grouped[hourKey].tipos[item.tipo] = [];
+        }
+        grouped[hourKey].tipos[item.tipo].push(item[field]);
+      }
+    });
+
+    return processGroupedData(grouped, 'hora');
+  };
+
+  // Función auxiliar para procesar datos agrupados
+  const processGroupedData = (grouped, periodType) => {
+    return Object.keys(grouped)
+      .sort()
+      .map(key => {
+        const group = grouped[key];
+        const result = {
+          fecha: new Date(key.includes('Semana') ? key.split('-Semana')[0] + '-01' : key + (key.length === 7 ? '-01' : '')),
+          fechaStr: key,
+          promedio: group.valores.reduce((sum, val) => sum + val, 0) / group.valores.length,
+          cantidad: group.valores.length,
+          periodo: periodType
+        };
+
+        // Para temperatura y humedad, calcular promedios por tipo
+        Object.keys(group.tipos).forEach(tipo => {
+          const valores = group.tipos[tipo];
+          result[`promedio_${tipo}`] = valores.reduce((sum, val) => sum + val, 0) / valores.length;
+          result[`cantidad_${tipo}`] = valores.length;
         });
-    };
 
-    // Procesar datos de temperatura por hora
-    const tempData = groupByHour(filteredData, 'temperatura');
-    
-    // Procesar datos de humedad por hora
-    const humData = groupByHour(filteredData, 'humedad');
-    
-    // Procesar datos de peso por hora (solo interno)
-    const pesoDataFiltered = filteredData.filter(d => d.tipo === 'interno' && d.peso !== null);
-    const pesoData = groupByHour(pesoDataFiltered, 'peso');
-
-    console.log('📊 Datos procesados por hora:', {
-      temperatura: tempData.length,
-      humedad: humData.length,
-      peso: pesoData.length
-    });
-
-    setHourlyData({
-      temperatura: tempData,
-      humedad: humData,
-      peso: pesoData
-    });
+        return result;
+      });
   };
 
   // Función para aplicar filtros de tiempo
@@ -279,34 +457,34 @@ const DashboardComplete = () => {
       }
     });
 
-    // Crear nuevos gráficos con datos horarios
+    // Crear nuevos gráficos con datos procesados dinámicamente
     setTimeout(() => {
       try {
-        if (temperaturaChartRef.current && hourlyData.temperatura.length > 0) {
+        if (temperaturaChartRef.current && processedData.temperatura.length > 0) {
           const existingChart = Chart.Chart.getChart(temperaturaChartRef.current);
           if (existingChart) {
             existingChart.destroy();
           }
           const ctx = temperaturaChartRef.current.getContext('2d');
-          chartInstances.current.temperatura = createChartJSInstance(ctx, hourlyData.temperatura, 'temperatura');
+          chartInstances.current.temperatura = createChartJSInstance(ctx, processedData.temperatura, 'temperatura');
         }
         
-        if (humedadChartRef.current && hourlyData.humedad.length > 0) {
+        if (humedadChartRef.current && processedData.humedad.length > 0) {
           const existingChart = Chart.Chart.getChart(humedadChartRef.current);
           if (existingChart) {
             existingChart.destroy();
           }
           const ctx = humedadChartRef.current.getContext('2d');
-          chartInstances.current.humedad = createChartJSInstance(ctx, hourlyData.humedad, 'humedad');
+          chartInstances.current.humedad = createChartJSInstance(ctx, processedData.humedad, 'humedad');
         }
         
-        if (pesoChartRef.current && hourlyData.peso.length > 0) {
+        if (pesoChartRef.current && processedData.peso.length > 0) {
           const existingChart = Chart.Chart.getChart(pesoChartRef.current);
           if (existingChart) {
             existingChart.destroy();
           }
           const ctx = pesoChartRef.current.getContext('2d');
-          chartInstances.current.peso = createChartJSInstance(ctx, hourlyData.peso, 'peso');
+          chartInstances.current.peso = createChartJSInstance(ctx, processedData.peso, 'peso');
         }
       } catch (error) {
         console.error('Error creando gráficos:', error);
@@ -592,7 +770,7 @@ const DashboardComplete = () => {
     loadDashboardData();
   };
 
-  // Función para crear gráficos con Chart.js - MODIFICADA PARA DATOS POR HORA
+  // Función para crear gráficos con Chart.js - MODIFICADA PARA DATOS DINÁMICOS
   const createSpecificChart = (data, chartType, title, chartId) => {
     if (!data || data.length < 2) {
       return (
@@ -613,6 +791,8 @@ const DashboardComplete = () => {
     }
 
     const isMobile = window.innerWidth <= 768;
+    const selectedFilter = timeFilters.find(f => f.key === timeFilter);
+    const periodType = selectedFilter ? selectedFilter.description : 'Agrupación dinámica';
 
     return (
       <div style={{
@@ -679,25 +859,47 @@ const DashboardComplete = () => {
           border: '1px solid rgba(229, 231, 235, 0.5)'
         }}>
           <span style={{ fontSize: '12px', color: '#6b7280' }}>
-            {timeFilters.find(f => f.key === timeFilter)?.label || 'Filtro personalizado'} - {data.length} horas con datos
+            {selectedFilter?.label || 'Filtro personalizado'} - {data.length} períodos con datos ({periodType})
           </span>
         </div>
       </div>
     );
   };
 
-  // Función auxiliar para crear instancias de Chart.js - MODIFICADA PARA DATOS POR HORA
+  // Función auxiliar para crear instancias de Chart.js - MODIFICADA PARA AGRUPACIÓN DINÁMICA
   const createChartJSInstance = (ctx, data, chartType) => {
     if (!data || data.length < 2) return null;
 
     let datasets = [];
     let labels = [];
     let yAxisLabel = '';
+    const selectedFilter = timeFilters.find(f => f.key === timeFilter);
+    const groupingType = selectedFilter ? selectedFilter.grouping : 'diario';
+    
+    // Formatear labels según el tipo de agrupación
+    const formatLabel = (fechaStr, grouping) => {
+      switch (grouping) {
+        case 'media_hora':
+          return fechaStr; // Ya viene formateado como "YYYY-MM-DD HH:mm"
+        case 'diario':
+          const [year, month, day] = fechaStr.split('-');
+          return `${day}/${month}`;
+        case 'semanal':
+          return fechaStr.replace('-Semana-', ' S'); // "2024-01-Semana-1" -> "2024-01 S1"
+        case 'mensual':
+          const [yr, mn] = fechaStr.split('-');
+          const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+          return `${months[parseInt(mn) - 1]} ${yr}`;
+        default:
+          return fechaStr;
+      }
+    };
+
+    labels = data.map(d => formatLabel(d.fechaStr, groupingType));
     
     switch (chartType) {
       case 'temperatura':
-        labels = data.map(d => d.fechaStr);
-        yAxisLabel = 'Temperatura Promedio por Hora (°C)';
+        yAxisLabel = `Temperatura Promedio por ${data[0]?.periodo || 'período'} (°C)`;
         
         // Separar datos internos y externos
         const hasInterno = data.some(d => d.promedio_interno !== undefined);
@@ -707,7 +909,7 @@ const DashboardComplete = () => {
         
         if (hasInterno) {
           datasets.push({
-            label: 'Temperatura Interna (Promedio/Hora)',
+            label: `Temperatura Interna (${data[0]?.periodo || 'período'})`,
             data: data.map(d => d.promedio_interno || null),
             borderColor: '#ef4444',
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -723,7 +925,7 @@ const DashboardComplete = () => {
         
         if (hasExterno) {
           datasets.push({
-            label: 'Temperatura Externa (Promedio/Hora)',
+            label: `Temperatura Externa (${data[0]?.periodo || 'período'})`,
             data: data.map(d => d.promedio_externo || null),
             borderColor: '#3b82f6',
             backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -739,8 +941,7 @@ const DashboardComplete = () => {
         break;
         
       case 'humedad':
-        labels = data.map(d => d.fechaStr);
-        yAxisLabel = 'Humedad Promedio por Hora (%)';
+        yAxisLabel = `Humedad Promedio por ${data[0]?.periodo || 'período'} (%)`;
         
         const hasInternoHum = data.some(d => d.promedio_interno !== undefined);
         const hasExternoHum = data.some(d => d.promedio_externo !== undefined);
@@ -749,7 +950,7 @@ const DashboardComplete = () => {
         
         if (hasInternoHum) {
           datasets.push({
-            label: 'Humedad Interna (Promedio/Hora)',
+            label: `Humedad Interna (${data[0]?.periodo || 'período'})`,
             data: data.map(d => d.promedio_interno || null),
             borderColor: '#10b981',
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -765,7 +966,7 @@ const DashboardComplete = () => {
         
         if (hasExternoHum) {
           datasets.push({
-            label: 'Humedad Externa (Promedio/Hora)',
+            label: `Humedad Externa (${data[0]?.periodo || 'período'})`,
             data: data.map(d => d.promedio_externo || null),
             borderColor: '#8b5cf6',
             backgroundColor: 'rgba(139, 92, 246, 0.1)',
@@ -781,12 +982,11 @@ const DashboardComplete = () => {
         break;
         
       case 'peso':
-        labels = data.map(d => d.fechaStr);
-        yAxisLabel = 'Peso Promedio por Hora (kg)';
+        yAxisLabel = `Peso Promedio por ${data[0]?.periodo || 'período'} (kg)`;
         
         datasets = [
           {
-            label: 'Peso de la Colmena (kg/hora)',
+            label: `Peso de la Colmena (kg/${data[0]?.periodo || 'período'})`,
             data: data.map(d => d.promedio ? (d.promedio / 1000).toFixed(3) : null), // CONVERSIÓN A KG
             borderColor: '#f59e0b',
             backgroundColor: 'rgba(245, 158, 11, 0.1)',
@@ -819,6 +1019,10 @@ const DashboardComplete = () => {
           tooltip: {
             backgroundColor: 'rgba(0, 0, 0, 0.8)',
             callbacks: {
+              title: function(context) {
+                const originalData = data[context[0].dataIndex];
+                return `${context[0].label} (${originalData.cantidad} lecturas)`;
+              },
               label: function(context) {
                 let label = context.dataset.label || '';
                 if (label) label += ': ';
@@ -838,7 +1042,10 @@ const DashboardComplete = () => {
         },
         scales: {
           x: {
-            title: { display: true, text: 'Hora' },
+            title: { 
+              display: true, 
+              text: selectedFilter ? selectedFilter.description : 'Período' 
+            },
             ticks: { 
               maxRotation: 45, 
               minRotation: 45,
@@ -855,7 +1062,7 @@ const DashboardComplete = () => {
     return new Chart.Chart(ctx, config);
   };
 
-  // Función para crear tabla de datos - MODIFICADA PARA DATOS POR HORA
+  // Función para crear tabla de datos - MODIFICADA PARA AGRUPACIÓN DINÁMICA
   const createDataTable = (data, tableType, title) => {
     if (!data || data.length === 0) {
       return (
@@ -882,15 +1089,20 @@ const DashboardComplete = () => {
         </div>
       );
     }
+
+    const selectedFilter = timeFilters.find(f => f.key === timeFilter);
+    const periodType = selectedFilter ? selectedFilter.description : 'período';
     
     let datosTabla = [];
     let columnas = [];
     
+    // Tomar los últimos 20 períodos para la tabla
+    datosTabla = data.slice(-20);
+    
     switch (tableType) {
       case 'temperatura':
-        datosTabla = data.slice(-30); // Últimas 30 horas
         columnas = [
-          { key: 'fechaStr', title: 'Hora', format: (d) => d.fechaStr },
+          { key: 'fechaStr', title: 'Período', format: (d) => d.fechaStr },
           { key: 'promedio_interno', title: 'Temp. Interna (°C)', format: (d) => d.promedio_interno ? `${d.promedio_interno.toFixed(1)}°C` : 'N/A' },
           { key: 'promedio_externo', title: 'Temp. Externa (°C)', format: (d) => d.promedio_externo ? `${d.promedio_externo.toFixed(1)}°C` : 'N/A' },
           { key: 'cantidad', title: 'Lecturas', format: (d) => d.cantidad }
@@ -898,9 +1110,8 @@ const DashboardComplete = () => {
         break;
         
       case 'humedad':
-        datosTabla = data.slice(-30); // Últimas 30 horas
         columnas = [
-          { key: 'fechaStr', title: 'Hora', format: (d) => d.fechaStr },
+          { key: 'fechaStr', title: 'Período', format: (d) => d.fechaStr },
           { key: 'promedio_interno', title: 'Hum. Interna (%)', format: (d) => d.promedio_interno ? `${d.promedio_interno.toFixed(1)}%` : 'N/A' },
           { key: 'promedio_externo', title: 'Hum. Externa (%)', format: (d) => d.promedio_externo ? `${d.promedio_externo.toFixed(1)}%` : 'N/A' },
           { key: 'cantidad', title: 'Lecturas', format: (d) => d.cantidad }
@@ -908,9 +1119,8 @@ const DashboardComplete = () => {
         break;
         
       case 'peso':
-        datosTabla = data.slice(-30); // Últimas 30 horas
         columnas = [
-          { key: 'fechaStr', title: 'Hora', format: (d) => d.fechaStr },
+          { key: 'fechaStr', title: 'Período', format: (d) => d.fechaStr },
           { key: 'promedio', title: 'Peso (kg)', format: (d) => d.promedio ? `${(d.promedio / 1000).toFixed(3)}kg` : 'N/A' },
           { key: 'cantidad', title: 'Lecturas', format: (d) => d.cantidad }
         ];
@@ -937,7 +1147,7 @@ const DashboardComplete = () => {
             📊 {title}
           </h4>
           <p style={{ color: '#6b7280', margin: 0 }}>
-            No hay datos de {tableType} por hora para el período seleccionado
+            No hay datos de {tableType} para el período seleccionado
           </p>
         </div>
       );
@@ -970,7 +1180,7 @@ const DashboardComplete = () => {
             padding: '2px 8px',
             borderRadius: '12px'
           }}>
-            {timeFilters.find(f => f.key === timeFilter)?.label || 'Personalizado'} - {datosTabla.length} horas
+            {selectedFilter?.label || 'Personalizado'} - {datosTabla.length} períodos ({periodType})
           </span>
         </h4>
         
@@ -1018,9 +1228,10 @@ const DashboardComplete = () => {
     );
   };
 
-  // Componente de filtros de tiempo
+  // Componente de filtros de tiempo - ACTUALIZADO
   const TimeFiltersComponent = () => {
     const isMobile = window.innerWidth <= 768;
+    const selectedFilter = timeFilters.find(f => f.key === timeFilter);
     
     return (
       <div style={{
@@ -1047,7 +1258,7 @@ const DashboardComplete = () => {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text'
             }}>
-              🔍 Filtros de Tiempo (Datos por Hora)
+              🔍 Filtros de Tiempo (Agrupación Dinámica)
             </h3>
             <p style={{
               margin: 0,
@@ -1055,7 +1266,7 @@ const DashboardComplete = () => {
               color: '#6b7280',
               fontWeight: '500'
             }}>
-              {filteredData.length} registros → {hourlyData.temperatura.length || hourlyData.humedad.length || hourlyData.peso.length} horas procesadas
+              {filteredData.length} registros → {Math.max(processedData.temperatura.length, processedData.humedad.length, processedData.peso.length)} períodos ({selectedFilter?.description || 'agrupación'})
             </p>
           </div>
 
@@ -1209,16 +1420,16 @@ const DashboardComplete = () => {
                 📊 <strong>Registros originales:</strong> {filteredData.length}
               </div>
               <div>
-                🕒 <strong>Horas con temperatura:</strong> {hourlyData.temperatura.length}
+                🕒 <strong>Períodos con temperatura:</strong> {processedData.temperatura.length}
               </div>
               <div>
-                💧 <strong>Horas con humedad:</strong> {hourlyData.humedad.length}
+                💧 <strong>Períodos con humedad:</strong> {processedData.humedad.length}
               </div>
               <div>
-                ⚖️ <strong>Horas con peso:</strong> {hourlyData.peso.length}
+                ⚖️ <strong>Períodos con peso:</strong> {processedData.peso.length}
               </div>
               <div>
-                🔍 <strong>Filtro activo:</strong> {timeFilters.find(f => f.key === timeFilter)?.label || 'Personalizado'}
+                🔍 <strong>Agrupación:</strong> {selectedFilter?.description || 'Personalizada'}
               </div>
             </div>
           </div>
@@ -1228,11 +1439,12 @@ const DashboardComplete = () => {
   };
 
   if (isLoading || !currentUser) {
-    return <Loading message="Cargando dashboard con datos por hora..." />;
+    return <Loading message="Cargando dashboard con agrupación dinámica..." />;
   }
 
   const latestData = filteredData.length > 0 ? filteredData[filteredData.length - 1] : null;
   const isMobile = window.innerWidth <= 768;
+  const selectedFilter = timeFilters.find(f => f.key === timeFilter);
 
   return (
     <div style={{ 
@@ -1268,7 +1480,7 @@ const DashboardComplete = () => {
             lineHeight: '1.2',
             letterSpacing: '-0.025em'
           }}>
-            🏠 SmartBee - Datos por Hora
+            🏠 SmartBee - Agrupación Dinámica
           </h1>
           <h2 style={{ 
             margin: '8px 0 0 0',
@@ -1330,7 +1542,7 @@ const DashboardComplete = () => {
               color: '#166534',
               width: 'fit-content'
             }}>
-              📊 <strong>Total:</strong> {sensorData.length} registros → Peso en KG
+              📊 <strong>Agrupación:</strong> {selectedFilter?.description || 'Personalizada'}
             </span>
           </div>
         </div>
@@ -1386,7 +1598,7 @@ const DashboardComplete = () => {
         </div>
       )}
 
-      {/* Grid de estadísticas mejorado con datos por hora */}
+      {/* Grid de estadísticas mejorado */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)',
@@ -1481,7 +1693,7 @@ const DashboardComplete = () => {
         ))}
       </div>
 
-      {/* Gráficos con datos por hora */}
+      {/* Gráficos con agrupación dinámica */}
       {filteredData.length === 0 ? (
         <div style={{
           background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
@@ -1534,7 +1746,7 @@ const DashboardComplete = () => {
           gap: '32px',
           marginBottom: '32px'
         }}>
-          {/* Información de datos procesados por hora */}
+          {/* Información de datos procesados dinámicamente */}
           <div style={{
             background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
             padding: '20px',
@@ -1548,7 +1760,7 @@ const DashboardComplete = () => {
               fontSize: '1.2rem',
               fontWeight: '700'
             }}>
-              📊 Datos Procesados por Hora - {timeFilters.find(f => f.key === timeFilter)?.label || 'Rango Personalizado'}
+              📊 Datos Procesados con Agrupación Dinámica - {selectedFilter?.label || 'Rango Personalizado'}
             </h3>
             <div style={{
               display: 'grid',
@@ -1571,8 +1783,8 @@ const DashboardComplete = () => {
                 borderRadius: '8px',
                 border: '1px solid rgba(34, 197, 94, 0.2)'
               }}>
-                <strong>🌡️ Horas con temperatura:</strong><br/>
-                {hourlyData.temperatura.length} horas procesadas
+                <strong>🌡️ Períodos con temperatura:</strong><br/>
+                {processedData.temperatura.length} {selectedFilter?.grouping || 'períodos'}
               </div>
               <div style={{
                 background: 'rgba(255, 255, 255, 0.8)',
@@ -1580,8 +1792,8 @@ const DashboardComplete = () => {
                 borderRadius: '8px',
                 border: '1px solid rgba(34, 197, 94, 0.2)'
               }}>
-                <strong>💧 Horas con humedad:</strong><br/>
-                {hourlyData.humedad.length} horas procesadas
+                <strong>💧 Períodos con humedad:</strong><br/>
+                {processedData.humedad.length} {selectedFilter?.grouping || 'períodos'}
               </div>
               <div style={{
                 background: 'rgba(255, 255, 255, 0.8)',
@@ -1589,8 +1801,8 @@ const DashboardComplete = () => {
                 borderRadius: '8px',
                 border: '1px solid rgba(34, 197, 94, 0.2)'
               }}>
-                <strong>⚖️ Horas con peso:</strong><br/>
-                {hourlyData.peso.length} horas (convertido a KG)
+                <strong>⚖️ Períodos con peso:</strong><br/>
+                {processedData.peso.length} {selectedFilter?.grouping || 'períodos'} (en KG)
               </div>
               <div style={{
                 background: 'rgba(255, 255, 255, 0.8)',
@@ -1608,26 +1820,26 @@ const DashboardComplete = () => {
               fontSize: '0.9rem',
               fontWeight: '500'
             }}>
-              🔄 Auto-actualización cada 10 segundos • Un dato por hora • Peso convertido de gramos a kilogramos
+              🔄 Auto-actualización cada 10 segundos • {selectedFilter?.description || 'Agrupación personalizada'} • Peso convertido de gramos a kilogramos
             </p>
           </div>
 
-          {/* Gráfico de Temperatura Interna/Externa por Hora */}
+          {/* Gráfico de Temperatura con agrupación dinámica */}
           <div>
-            {createSpecificChart(hourlyData.temperatura, 'temperatura', 'Temperatura Interna vs Externa (Promedio por Hora)', 'temp-chart')}
-            {createDataTable(hourlyData.temperatura, 'temperatura', 'Temperaturas por Hora')}
+            {createSpecificChart(processedData.temperatura, 'temperatura', `Temperatura Interna vs Externa (${selectedFilter?.description || 'Agrupación dinámica'})`, 'temp-chart')}
+            {createDataTable(processedData.temperatura, 'temperatura', `Temperaturas por ${selectedFilter?.description || 'Período'}`)}
           </div>
 
-          {/* Gráfico de Humedad Interna/Externa por Hora */}
+          {/* Gráfico de Humedad con agrupación dinámica */}
           <div>
-            {createSpecificChart(hourlyData.humedad, 'humedad', 'Humedad Interna vs Externa (Promedio por Hora)', 'hum-chart')}
-            {createDataTable(hourlyData.humedad, 'humedad', 'Humedad por Hora')}
+            {createSpecificChart(processedData.humedad, 'humedad', `Humedad Interna vs Externa (${selectedFilter?.description || 'Agrupación dinámica'})`, 'hum-chart')}
+            {createDataTable(processedData.humedad, 'humedad', `Humedad por ${selectedFilter?.description || 'Período'}`)}
           </div>
 
-          {/* Gráfico de Peso por Hora (en KG) */}
+          {/* Gráfico de Peso con agrupación dinámica (en KG) */}
           <div>
-            {createSpecificChart(hourlyData.peso, 'peso', 'Monitoreo de Peso (Promedio por Hora en KG)', 'peso-chart')}
-            {createDataTable(hourlyData.peso, 'peso', 'Peso por Hora (Convertido a KG)')}
+            {createSpecificChart(processedData.peso, 'peso', `Monitoreo de Peso (${selectedFilter?.description || 'Agrupación dinámica'} en KG)`, 'peso-chart')}
+            {createDataTable(processedData.peso, 'peso', `Peso por ${selectedFilter?.description || 'Período'} (Convertido a KG)`)}
           </div>
         </div>
       )}
@@ -1680,7 +1892,18 @@ const DashboardComplete = () => {
             borderRadius: '20px',
             fontWeight: '600'
           }}>
-            ⏰ <strong>Horas procesadas:</strong> {Math.max(hourlyData.temperatura.length, hourlyData.humedad.length, hourlyData.peso.length)}
+            ⏰ <strong>Períodos procesados:</strong> {Math.max(processedData.temperatura.length, processedData.humedad.length, processedData.peso.length)}
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px',
+            padding: '8px 12px',
+            background: 'rgba(255, 255, 255, 0.8)',
+            borderRadius: '20px',
+            fontWeight: '600'
+          }}>
+            📈 <strong>Agrupación:</strong> {selectedFilter?.description || 'Personalizada'}
           </div>
           <div style={{ 
             display: 'flex', 
@@ -1702,7 +1925,7 @@ const DashboardComplete = () => {
             borderRadius: '20px',
             fontWeight: '600'
           }}>
-            🕒 <strong>Período:</strong> {timeFilters.find(f => f.key === timeFilter)?.label || 'Personalizado'}
+            🕒 <strong>Filtro:</strong> {selectedFilter?.label || 'Personalizado'}
           </div>
           <div style={{ 
             display: 'flex', 
@@ -1777,7 +2000,25 @@ const DashboardComplete = () => {
             color: '#6b7280',
             fontWeight: '500'
           }}>
-            📊 <span>Datos Agrupados por Hora</span>
+            📊 <span>Agrupación Dinámica por Filtro</span>
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px',
+            color: '#6b7280',
+            fontWeight: '500'
+          }}>
+            📅 <span>Día: 30min | Semana: Diario</span>
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '8px',
+            color: '#6b7280',
+            fontWeight: '500'
+          }}>
+            🗓️ <span>Mes: Semanal | Año: Mensual</span>
           </div>
           <div style={{ 
             display: 'flex', 
@@ -1795,24 +2036,6 @@ const DashboardComplete = () => {
             color: '#6b7280',
             fontWeight: '500'
           }}>
-            🌡️ <span>Temperatura Interior/Exterior</span>
-          </div>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px',
-            color: '#6b7280',
-            fontWeight: '500'
-          }}>
-            💧 <span>Humedad Interior/Exterior</span>
-          </div>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '8px',
-            color: '#6b7280',
-            fontWeight: '500'
-          }}>
             🏆 <span>Apicultura Inteligente</span>
           </div>
         </div>
@@ -1822,7 +2045,7 @@ const DashboardComplete = () => {
           color: '#9ca3af',
           fontWeight: '500'
         }}>
-          Un dato por hora • Temperatura interior/exterior • Humedad interior/exterior • Peso en kilogramos (ej: 1343g → 1.343kg) • Auto-actualización cada 10 segundos
+          Agrupación inteligente según filtro • Día=30min, Semana=diario, Mes=semanal, Año=mensual • Peso en kilogramos • Auto-actualización cada 10 segundos
         </p>
       </div>
     </div>
