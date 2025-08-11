@@ -1,0 +1,391 @@
+# 🐝 SmartBee - Sistema de Gestión Apícola
+
+SmartBee es una aplicación web completa para la gestión de apiarios, colmenas y revisiones apícolas. Desarrollada con React en el frontend y Node.js/Express en el backend, utilizando MariaDB como base de datos.
+
+## 🚀 Características Principales
+
+- **Gestión de Apiarios**: Crear, editar y organizar ubicaciones de colmenas
+- **Control de Colmenas**: Seguimiento individual de cada colonia
+- **Registro de Revisiones**: Formularios detallados para inspecciones
+- **Dashboard Intuitivo**: Resumen visual de la actividad apícola
+- **Alertas Inteligentes**: Notificaciones basadas en patrones de revisión
+- **Responsive Design**: Funciona perfectamente en móviles y tablets
+- **Autenticación Segura**: Sistema de login con JWT
+
+## 📋 Requisitos Previos
+
+- **Node.js** (versión 16 o superior)
+- **XAMPP** con MariaDB (o MariaDB standalone)
+- **Git** (opcional, para clonar el repositorio)
+
+## 🛠️ Instalación
+
+### 1. Configurar la Base de Datos
+
+1. **Iniciar XAMPP** y activar el servicio de MariaDB
+2. **Acceder a phpMyAdmin** (http://localhost/phpmyadmin)
+3. **Crear la base de datos**:
+   ```sql
+   CREATE DATABASE smartbee;
+   USE smartbee;
+   ```
+
+4. **Crear las tablas necesarias**:
+   ```sql
+   -- Tabla de roles
+   CREATE TABLE rol (
+       id INT PRIMARY KEY AUTO_INCREMENT,
+       nombre VARCHAR(50) NOT NULL UNIQUE
+   );
+
+   -- Tabla de usuarios
+   CREATE TABLE usuario (
+       id INT PRIMARY KEY AUTO_INCREMENT,
+       nombre VARCHAR(100) NOT NULL,
+       apellido VARCHAR(100) NOT NULL,
+       email VARCHAR(150) NOT NULL UNIQUE,
+       password VARCHAR(255) NOT NULL,
+       telefono VARCHAR(20),
+       rol_id INT DEFAULT 1,
+       fecha_registro DATETIME DEFAULT CURRENT_TIMESTAMP,
+       FOREIGN KEY (rol_id) REFERENCES rol(id)
+   );
+
+   -- Tabla de apiarios
+   CREATE TABLE apiario (
+       id INT PRIMARY KEY AUTO_INCREMENT,
+       nombre VARCHAR(100) NOT NULL,
+       ubicacion VARCHAR(200) NOT NULL,
+       descripcion TEXT,
+       usuario_id INT NOT NULL,
+       fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+       FOREIGN KEY (usuario_id) REFERENCES usuario(id)
+   );
+
+   -- Tabla de colmenas
+   CREATE TABLE colmena (
+       id INT PRIMARY KEY AUTO_INCREMENT,
+       nombre VARCHAR(100) NOT NULL,
+       tipo VARCHAR(50) DEFAULT 'Langstroth',
+       estado ENUM('activa', 'inactiva') DEFAULT 'activa',
+       apiario_id INT NOT NULL,
+       fecha_instalacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+       FOREIGN KEY (apiario_id) REFERENCES apiario(id)
+   );
+
+   -- Tabla de revisiones
+   CREATE TABLE revision (
+       id INT PRIMARY KEY AUTO_INCREMENT,
+       colmena_id INT NOT NULL,
+       fecha_revision DATETIME NOT NULL,
+       num_alzas INT DEFAULT 0,
+       marcos_abejas INT DEFAULT 0,
+       marcos_cria INT DEFAULT 0,
+       marcos_alimento INT DEFAULT 0,
+       marcos_polen INT DEFAULT 0,
+       presencia_varroa ENUM('si', 'no') DEFAULT 'no',
+       condicion_reina ENUM('buena', 'regular', 'mala', 'ausente') DEFAULT 'buena',
+       producto_sanitario VARCHAR(100),
+       dosis_sanitario VARCHAR(50),
+       notas TEXT,
+       FOREIGN KEY (colmena_id) REFERENCES colmena(id)
+   );
+
+   -- Insertar roles básicos
+   INSERT INTO rol (nombre) VALUES ('Apicultor'), ('Administrador');
+
+   -- Crear usuario administrador (contraseña: admin123)
+   INSERT INTO usuario (nombre, apellido, email, password, rol_id) 
+   VALUES ('Admin', 'SmartBee', 'admin@smartbee.com', '$2a$10$8K1p/a0dUrziIHpfaat8-.VgWIw2N4Ii67VjZPbJM7HG7cYcrKKiG', 2);
+   ```
+
+### 2. Configurar el Backend
+
+1. **Navegar a la carpeta del backend**:
+   ```bash
+   cd backend
+   ```
+
+2. **Instalar dependencias**:
+   ```bash
+   npm install
+   ```
+
+3. **Crear archivo .env**:
+   ```env
+   DB_HOST=localhost
+   DB_USER=root
+   DB_PASSWORD=
+   DB_NAME=smartbee
+   DB_PORT=3306
+   JWT_SECRET=mi_clave_secreta_super_segura_123
+   PORT=3001
+   ```
+
+4. **Iniciar el servidor backend**:
+   ```bash
+   npm run dev
+   ```
+
+   El backend estará disponible en: http://localhost:3001
+
+### 3. Configurar el Frontend
+
+1. **Navegar a la carpeta del frontend**:
+   ```bash
+   cd frontend
+   ```
+
+2. **Instalar dependencias**:
+   ```bash
+   npm install
+   ```
+
+3. **Crear archivo .env** (opcional):
+   ```env
+   REACT_APP_API_URL=http://localhost:3001/api
+   ```
+
+4. **Iniciar la aplicación React**:
+   ```bash
+   npm start
+   ```
+
+   El frontend estará disponible en: http://localhost:3000
+
+## 🔑 Acceso a la Aplicación
+
+**Credenciales por defecto:**
+- **Email**: admin@smartbee.com
+- **Contraseña**: admin123
+
+## 📱 Uso de la Aplicación
+
+### Dashboard Principal
+- **Vista general** de estadísticas
+- **Últimas revisiones** registradas
+- **Acciones rápidas** para tareas comunes
+- **Alertas y recordatorios** importantes
+
+### Gestión de Apiarios
+- **Crear nuevos apiarios** con ubicación y descripción
+- **Ver listado** de todos los apiarios
+- **Editar información** de apiarios existentes
+- **Eliminar apiarios** vacíos
+
+### Gestión de Colmenas
+- **Registrar nuevas colmenas** en apiarios
+- **Ver estado** de cada colmena
+- **Acceder a detalles** y historial
+- **Gestionar información** básica
+
+### Registro de Revisiones
+- **Formularios detallados** para inspecciones
+- **Campos específicos** para apicultura:
+  - Número de alzas
+  - Marcos con abejas, cría, alimento, polen
+  - Presencia de varroa
+  - Condición de la reina
+  - Tratamientos sanitarios
+  - Notas adicionales
+
+### Perfil de Usuario
+- **Editar información** personal
+- **Cambiar configuraciones** básicas
+
+## 🗄️ Estructura de la Base de Datos
+
+```
+smartbee/
+├── rol (roles de usuario)
+├── usuario (información de usuarios)
+├── apiario (ubicaciones de colmenas)
+├── colmena (colmenas individuales)
+├── revision (registros de inspección)
+├── nodo_tipo (tipos de sensores) *
+├── nodo (datos de sensores) *
+├── nodo_colmena (relación sensores-colmenas) *
+└── colmena_ubicacion (ubicaciones GPS) *
+
+* Tablas preparadas para futuras funcionalidades
+```
+
+## 🔧 Desarrollo y Personalización
+
+### Agregar Nuevas Funcionalidades
+
+1. **Backend**: Crear nuevos controllers y routes en `/backend`
+2. **Frontend**: Agregar componentes en `/frontend/src/components`
+3. **Estilos**: Modificar `/frontend/src/styles/global.css`
+
+### Variables CSS Personalizables
+
+```css
+:root {
+  --primary-color: #f4a261;    /* Color principal */
+  --secondary-color: #2a9d8f;  /* Color secundario */
+  --accent-color: #e9c46a;     /* Color de acento */
+  /* ... más variables disponibles */
+}
+```
+
+## 📊 APIs Disponibles
+
+### Usuarios
+- `POST /api/usuarios/login` - Iniciar sesión
+- `GET /api/usuarios` - Obtener todos los usuarios
+- `GET /api/usuarios/:id` - Obtener usuario por ID
+- `POST /api/usuarios` - Crear nuevo usuario
+- `PUT /api/usuarios/:id` - Actualizar usuario
+- `DELETE /api/usuarios/:id` - Eliminar usuario
+
+### Apiarios
+- `GET /api/apiarios` - Obtener todos los apiarios
+- `GET /api/apiarios/:id` - Obtener apiario por ID
+- `POST /api/apiarios` - Crear nuevo apiario
+- `PUT /api/apiarios/:id` - Actualizar apiario
+- `DELETE /api/apiarios/:id` - Eliminar apiario
+- `GET /api/apiarios/:id/estadisticas` - Estadísticas del apiario
+
+### Colmenas
+- `GET /api/colmenas` - Obtener todas las colmenas
+- `GET /api/colmenas/:id` - Obtener colmena por ID
+- `POST /api/colmenas` - Crear nueva colmena
+- `PUT /api/colmenas/:id` - Actualizar colmena
+- `DELETE /api/colmenas/:id` - Eliminar colmena
+- `GET /api/colmenas/:id/sensores` - Datos de sensores
+- `GET /api/colmenas/:id/estadisticas` - Estadísticas de la colmena
+
+### Revisiones
+- `GET /api/revisiones` - Obtener todas las revisiones
+- `GET /api/revisiones/:id` - Obtener revisión por ID
+- `POST /api/revisiones` - Crear nueva revisión
+- `PUT /api/revisiones/:id` - Actualizar revisión
+- `DELETE /api/revisiones/:id` - Eliminar revisión
+- `GET /api/revisiones/resumen/:colmena_id` - Resumen de revisiones
+- `GET /api/revisiones/alertas/:colmena_id` - Alertas de la colmena
+
+### Dashboard
+- `GET /api/dashboard/stats` - Estadísticas generales
+
+## 🚨 Solución de Problemas
+
+### Error de Conexión a la Base de Datos
+```bash
+Error: ER_ACCESS_DENIED_FOR_USER
+```
+**Solución**: Verificar credenciales en el archivo `.env` del backend
+
+### Puerto 3001 ya en uso
+```bash
+Error: listen EADDRINUSE :::3001
+```
+**Solución**: 
+```bash
+# Encontrar el proceso que usa el puerto
+netstat -ano | findstr :3001
+# Terminar el proceso
+taskkill /PID [número_de_proceso] /F
+```
+
+### Error de CORS
+```bash
+Access to XMLHttpRequest blocked by CORS policy
+```
+**Solución**: El backend ya incluye configuración CORS, verificar que esté ejecutándose
+
+### Problemas de Autenticación
+- Verificar que el token JWT no haya expirado
+- Comprobar que las credenciales sean correctas
+- Limpiar localStorage del navegador si es necesario
+
+## 📈 Próximas Funcionalidades
+
+### En Desarrollo
+- **Gráficos de Sensores**: Visualización de datos de temperatura, humedad y peso
+- **Exportación de Reportes**: PDF y Excel de revisiones
+- **Notificaciones Push**: Alertas en tiempo real
+- **Gestión de Tratamientos**: Calendario de aplicaciones sanitarias
+- **Análisis Predictivo**: IA para detectar problemas tempranos
+
+### Planificadas
+- **App Móvil**: React Native para iOS y Android
+- **IoT Integration**: Conexión con sensores reales
+- **Marketplace**: Venta de productos apícolas
+- **Comunidad**: Foro de apicultores
+- **Weather API**: Integración con datos meteorológicos
+
+## 🤝 Contribución
+
+### Cómo Contribuir
+1. **Fork** el repositorio
+2. **Crear rama** para nueva funcionalidad: `git checkout -b feature/nueva-funcionalidad`
+3. **Commit** cambios: `git commit -m 'Agregar nueva funcionalidad'`
+4. **Push** a la rama: `git push origin feature/nueva-funcionalidad`
+5. **Crear Pull Request**
+
+### Estándares de Código
+- **JavaScript**: ESLint con configuración React
+- **CSS**: Variables CSS y metodología BEM
+- **Commits**: Mensajes descriptivos en español
+- **Documentación**: Comentarios en código complejo
+
+## 📝 Licencia
+
+Este proyecto está bajo la Licencia MIT. Ver archivo `LICENSE` para más detalles.
+
+## 👥 Equipo de Desarrollo
+
+- **Backend**: Node.js, Express, MariaDB
+- **Frontend**: React, Axios, Chart.js
+- **Diseño**: CSS3, Responsive Design
+- **Autenticación**: JWT, bcrypt
+
+## 📞 Soporte
+
+### Contacto
+- **Email**: soporte@smartbee.com
+- **Documentación**: [Wiki del proyecto]
+- **Issues**: [GitHub Issues]
+- **Discusiones**: [GitHub Discussions]
+
+### FAQ
+
+**¿Puedo usar PostgreSQL en lugar de MariaDB?**
+Sí, solo necesitas cambiar la configuración de conexión y ajustar algunas consultas SQL específicas.
+
+**¿Funciona en otros sistemas operativos?**
+Sí, SmartBee es compatible con Windows, macOS y Linux.
+
+**¿Puedo personalizar los campos de revisión?**
+Actualmente los campos están fijos, pero está planificado permitir personalización en futuras versiones.
+
+**¿Soporta múltiples idiomas?**
+Actualmente solo español, pero la internacionalización está en desarrollo.
+
+## 🔄 Historial de Versiones
+
+### v1.0.0 (Actual)
+- ✅ Sistema básico de gestión de apiarios y colmenas
+- ✅ Formularios de revisión completos
+- ✅ Dashboard con estadísticas
+- ✅ Autenticación de usuarios
+- ✅ Diseño responsive
+
+### v0.9.0 (Beta)
+- ✅ Implementación de backend completo
+- ✅ Componentes React básicos
+- ✅ Sistema de autenticación
+
+### v0.8.0 (Alpha)
+- ✅ Diseño de base de datos
+- ✅ Estructura del proyecto
+- ✅ Configuración inicial
+
+---
+
+## 🎉 ¡Gracias por usar SmartBee!
+
+SmartBee es más que una aplicación, es una herramienta diseñada por y para apicultores. Esperamos que te ayude a gestionar mejor tus colmenas y a obtener mejores resultados en tu actividad apícola.
+
+**¡Que tengas dulces cosechas! 🍯🐝**
