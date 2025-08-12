@@ -282,15 +282,35 @@ export const ApiProvider = ({ children }) => {
     delete: (id) => apiRequest('delete', `/mensajes/${id}`),
   };
 
-  const dashboard = {
+  // En ApiContext.js, actualizar el método getSensorData:
+const dashboard = {
     getStats: () => apiRequest('get', '/dashboard/stats'),
     getRecent: () => apiRequest('get', '/dashboard/recent'),
     getAlertas: () => apiRequest('get', '/dashboard/alertas'),
     getGraficos: () => apiRequest('get', '/dashboard/graficos'),
     getMonitoreo: () => apiRequest('get', '/dashboard/monitoreo'),
-    // NUEVO: Método específico para datos de sensores del dashboard
-    getSensorData: (hours = 168) => apiRequest('get', `/dashboard/sensor-data?hours=${hours}`)
-  };
+    // ✅ MÉTODO ACTUALIZADO para incluir userId
+    getSensorData: (hours = 168, userId = null) => {
+        // Si no se proporciona userId, intentar obtenerlo del localStorage
+        if (!userId) {
+            try {
+                const userData = localStorage.getItem('smartbee_user');
+                if (userData) {
+                    const user = JSON.parse(userData);
+                    userId = user.id;
+                }
+            } catch (error) {
+                console.error('Error obteniendo userId del localStorage:', error);
+            }
+        }
+        
+        if (!userId) {
+            throw new Error('Se requiere userId para obtener datos de sensores');
+        }
+        
+        return apiRequest('get', `/dashboard/sensor-data?hours=${hours}&userId=${userId}`);
+    }
+};
 
   const selects = {
     usuarios: () => apiRequest('get', '/select/usuarios', null, false),

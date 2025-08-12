@@ -233,56 +233,7 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-2">
-        {/* Mensajes Recientes */}
-        <Card title="Mensajes de Sensores">
-          {mensajesRecientes.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>📡</div>
-              <p>No hay mensajes recientes</p>
-              <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                Los mensajes de los sensores aparecerán aquí
-              </p>
-            </div>
-          ) : (
-            <div style={{ maxHeight: '400px', overflow: 'auto' }}>
-              {mensajesRecientes.map((mensaje) => {
-                const badge = getTipoMensajeBadge(mensaje.topico);
-                return (
-                  <div key={mensaje.id} style={{
-                    padding: '0.75rem',
-                    borderBottom: '1px solid #e5e7eb',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '1rem'
-                  }}>
-                    <span style={{ fontSize: '1.25rem' }}>{badge.icon}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                        <span className={`badge ${badge.class}`}>
-                          {mensaje.topico}
-                        </span>
-                        <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                          Nodo {mensaje.nodo_id}
-                        </span>
-                      </div>
-                      <p style={{ margin: 0, fontWeight: '500' }}>
-                        {mensaje.payload}
-                      </p>
-                      <p style={{ 
-                        margin: 0, 
-                        fontSize: '0.75rem', 
-                        color: '#6b7280',
-                        marginTop: '0.25rem'
-                      }}>
-                        {formatearFecha(mensaje.fecha)}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
+        
 
         {/* Colmenas */}
         <Card title="Colmenas Monitoreadas">
@@ -345,49 +296,7 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Estado del Sistema */}
-      <Card title="Estado del Sistema" className="mt-6">
-        <div style={{ 
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '1.5rem',
-          padding: '1rem'
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
-              {isConnected ? '🟢' : '🔴'}
-            </div>
-            <h4 style={{ margin: 0, marginBottom: '0.25rem' }}>Backend</h4>
-            <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
-              {isConnected ? 'Conectado' : 'Desconectado'}
-            </p>
-          </div>
-
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📊</div>
-            <h4 style={{ margin: 0, marginBottom: '0.25rem' }}>Base de Datos</h4>
-            <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
-              MySQL Operativa
-            </p>
-          </div>
-
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🐝</div>
-            <h4 style={{ margin: 0, marginBottom: '0.25rem' }}>Sensores</h4>
-            <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
-              {stats?.mensajesHoy || 0} lecturas hoy
-            </p>
-          </div>
-
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⚡</div>
-            <h4 style={{ margin: 0, marginBottom: '0.25rem' }}>API Status</h4>
-            <p style={{ margin: 0, fontSize: '0.875rem', color: '#6b7280' }}>
-              SmartBee API v1.0
-            </p>
-          </div>
-        </div>
-      </Card>
+      
 
       
     </div>

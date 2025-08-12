@@ -82,7 +82,7 @@ const Sidebar = ({ currentUser, roleConfig, theme, isDarkMode, isMobileOpen, onM
         { path: '/dashboard', name: 'Dashboard', icon: '📊' },
         { path: '/usuarios', name: 'Usuarios', icon: '👥' },
         { path: '/colmenas', name: 'Colmenas', icon: '🏠' },
-        { path: '/revisiones', name: 'Nodos', icon: '📡' }
+        
       ];
       return adminRoutes;
     }

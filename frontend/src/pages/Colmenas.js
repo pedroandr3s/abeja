@@ -12,6 +12,11 @@ const Colmenas = () => {
   const [colmenasList, setColmenasList] = useState([]);
   const [usuariosList, setUsuariosList] = useState([]);
   const [nodosList, setNodosList] = useState([]);
+  
+  // ✅ NUEVOS ESTADOS para nodos disponibles
+  const [nodosInterioresDisponibles, setNodosInterioresDisponibles] = useState([]);
+  const [nodosExterioresDisponibles, setNodosExterioresDisponibles] = useState([]);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [editingColmena, setEditingColmena] = useState(null);
@@ -29,7 +34,10 @@ const Colmenas = () => {
     descripcion: '',
     latitud: '',
     longitud: '',
-    dueno: ''
+    dueno: '',
+    // ✅ NUEVOS CAMPOS para nodos
+    nodo_interior: '',
+    nodo_exterior: ''
   });
   const [formErrors, setFormErrors] = useState({});
   
@@ -142,23 +150,32 @@ const Colmenas = () => {
     }
   };
 
+  // ✅ FUNCIÓN ACTUALIZADA para cargar nodos disponibles
   const loadData = async () => {
     try {
       console.log('🔄 Cargando datos de colmenas...');
       
-      const [colmenasData, usuariosData, nodosData] = await Promise.all([
+      const [colmenasData, usuariosData, nodosData, nodosInteriores, nodosExteriores] = await Promise.all([
         colmenas.getAll(),
         usuarios.getAll(),
-        nodos.getAll()
+        nodos.getAll(),
+        // ✅ NUEVAS LLAMADAS para nodos disponibles
+        nodos.getInterioresDisponibles(),
+        nodos.getExterioresDisponibles()
       ]);
       
       console.log('✅ Colmenas cargadas:', colmenasData);
       console.log('✅ Usuarios cargados:', usuariosData);
       console.log('✅ Nodos cargados:', nodosData);
+      console.log('✅ Nodos interiores disponibles:', nodosInteriores);
+      console.log('✅ Nodos exteriores disponibles:', nodosExteriores);
       
       setColmenasList(colmenasData || []);
       setUsuariosList(usuariosData || []);
       setNodosList(nodosData || []);
+      // ✅ NUEVOS ESTADOS
+      setNodosInterioresDisponibles(nodosInteriores || []);
+      setNodosExterioresDisponibles(nodosExteriores || []);
     } catch (err) {
       console.error('❌ Error cargando datos:', err);
       
@@ -308,6 +325,7 @@ const Colmenas = () => {
     }
   };
 
+  // ✅ FUNCIÓN ACTUALIZADA para incluir nodos
   const handleOpenModal = (colmena = null) => {
     // Verificar permisos antes de abrir modal
     if (!currentUser) {
@@ -324,7 +342,10 @@ const Colmenas = () => {
         descripcion: colmena.descripcion || '',
         latitud: colmena.latitud || '',
         longitud: colmena.longitud || '',
-        dueno: colmena.dueno || ''
+        dueno: colmena.dueno || '',
+        // ✅ NUEVOS CAMPOS para nodos
+        nodo_interior: colmena.nodo_interior_id || '',
+        nodo_exterior: colmena.nodo_exterior_id || ''
       });
     } else {
       setEditingColmena(null);
@@ -332,13 +353,17 @@ const Colmenas = () => {
         descripcion: '',
         latitud: '',
         longitud: '',
-        dueno: ''
+        dueno: '',
+        // ✅ NUEVOS CAMPOS para nodos
+        nodo_interior: '',
+        nodo_exterior: ''
       });
     }
     setFormErrors({});
     setIsModalOpen(true);
   };
 
+  // ✅ FUNCIÓN ACTUALIZADA para limpiar campos de nodos
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingColmena(null);
@@ -346,7 +371,10 @@ const Colmenas = () => {
       descripcion: '',
       latitud: '',
       longitud: '',
-      dueno: ''
+      dueno: '',
+      // ✅ NUEVOS CAMPOS para nodos
+      nodo_interior: '',
+      nodo_exterior: ''
     });
     setFormErrors({});
     setIsSubmitting(false);
@@ -399,6 +427,7 @@ const Colmenas = () => {
     return Object.keys(errors).length === 0;
   };
 
+  // ✅ FUNCIÓN ACTUALIZADA para enviar datos con nodos
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -413,7 +442,10 @@ const Colmenas = () => {
       
       const colmenaData = {
         descripcion: formData.descripcion.trim(),
-        dueno: formData.dueno
+        dueno: formData.dueno,
+        // ✅ NUEVOS CAMPOS para nodos
+        nodo_interior: formData.nodo_interior || null,
+        nodo_exterior: formData.nodo_exterior || null
       };
 
       // Solo incluir coordenadas si ambas están presentes
@@ -448,7 +480,7 @@ const Colmenas = () => {
       }
       
       handleCloseModal();
-      await loadData();
+      await loadData(); // Recargar datos para actualizar nodos disponibles
     } catch (err) {
       console.error('❌ Error guardando colmena:', err);
       
@@ -783,6 +815,7 @@ const Colmenas = () => {
           </div>
         ) : (
           <div style={{ overflow: 'auto' }}>
+            {/* ✅ TABLA ACTUALIZADA con columnas de nodos */}
             <table className="table">
               <thead>
                 <tr>
@@ -791,6 +824,9 @@ const Colmenas = () => {
                   <th>Dueño</th>
                   <th>Ubicación</th>
                   <th>Coordenadas</th>
+                  {/* ✅ NUEVAS COLUMNAS */}
+                  <th>Nodo Interior</th>
+                  <th>Nodo Exterior</th>
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
@@ -897,6 +933,55 @@ const Colmenas = () => {
                         }
                       })()}
                     </td>
+                    
+                    {/* ✅ NUEVA COLUMNA - Nodo Interior */}
+                    <td>
+                      {colmena.nodo_interior_id ? (
+                        <div>
+                          <div style={{ 
+                            fontWeight: '500',
+                            fontFamily: 'monospace',
+                            fontSize: '0.875rem',
+                            color: '#059669'
+                          }}>
+                            {colmena.nodo_interior_id}
+                          </div>
+                          <div style={{ 
+                            fontSize: '0.75rem', 
+                            color: '#6b7280' 
+                          }}>
+                            {colmena.nodo_interior_descripcion || 'Nodo interior'}
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{ color: '#6b7280' }}>Sin asignar</span>
+                      )}
+                    </td>
+                    
+                    {/* ✅ NUEVA COLUMNA - Nodo Exterior */}
+                    <td>
+                      {colmena.nodo_exterior_id ? (
+                        <div>
+                          <div style={{ 
+                            fontWeight: '500',
+                            fontFamily: 'monospace',
+                            fontSize: '0.875rem',
+                            color: '#dc2626'
+                          }}>
+                            {colmena.nodo_exterior_id}
+                          </div>
+                          <div style={{ 
+                            fontSize: '0.75rem', 
+                            color: '#6b7280' 
+                          }}>
+                            {colmena.nodo_exterior_descripcion || 'Nodo exterior'}
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{ color: '#6b7280' }}>Sin asignar</span>
+                      )}
+                    </td>
+                    
                     <td>
                       <span className="badge badge-success">
                         Activa
@@ -946,7 +1031,7 @@ const Colmenas = () => {
         )}
       </Card>
 
-      {/* Modal para crear/editar colmena */}
+      {/* ✅ MODAL ACTUALIZADO con campos de nodos */}
       <Modal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
@@ -1042,6 +1127,71 @@ const Colmenas = () => {
             </div>
           </div>
 
+          {/* ✅ NUEVA SECCIÓN - Nodos */}
+          <div className="grid grid-2">
+            <div className="form-group">
+              <label className="form-label">
+                Nodo Interior
+                <span style={{ fontSize: '0.75rem', color: '#6b7280', marginLeft: '0.5rem' }}>
+                  (Sensor interno de la colmena)
+                </span>
+              </label>
+              <select
+                className={`form-select ${formErrors.nodo_interior ? 'error' : ''}`}
+                value={formData.nodo_interior}
+                onChange={(e) => setFormData({...formData, nodo_interior: e.target.value})}
+                disabled={isSubmitting}
+              >
+                <option value="">Sin asignar</option>
+                {editingColmena && formData.nodo_interior && (
+                  <option value={formData.nodo_interior}>
+                    {formData.nodo_interior} (Actual)
+                  </option>
+                )}
+                {nodosInterioresDisponibles.map((nodo) => (
+                  <option key={nodo.id} value={nodo.id}>
+                    {nodo.id} - {nodo.descripcion}
+                    {nodo.tipo_descripcion && ` (${nodo.tipo_descripcion})`}
+                  </option>
+                ))}
+              </select>
+              {formErrors.nodo_interior && (
+                <div className="error-message">{formErrors.nodo_interior}</div>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">
+                Nodo Exterior
+                <span style={{ fontSize: '0.75rem', color: '#6b7280', marginLeft: '0.5rem' }}>
+                  (Sensor meteorológico externo)
+                </span>
+              </label>
+              <select
+                className={`form-select ${formErrors.nodo_exterior ? 'error' : ''}`}
+                value={formData.nodo_exterior}
+                onChange={(e) => setFormData({...formData, nodo_exterior: e.target.value})}
+                disabled={isSubmitting}
+              >
+                <option value="">Sin asignar</option>
+                {editingColmena && formData.nodo_exterior && (
+                  <option value={formData.nodo_exterior}>
+                    {formData.nodo_exterior} (Actual)
+                  </option>
+                )}
+                {nodosExterioresDisponibles.map((nodo) => (
+                  <option key={nodo.id} value={nodo.id}>
+                    {nodo.id} - {nodo.descripcion}
+                    {nodo.tipo_descripcion && ` (${nodo.tipo_descripcion})`}
+                  </option>
+                ))}
+              </select>
+              {formErrors.nodo_exterior && (
+                <div className="error-message">{formErrors.nodo_exterior}</div>
+              )}
+            </div>
+          </div>
+
           {formErrors.coordenadas && (
             <div className="error-message" style={{ marginTop: '0.5rem' }}>
               {formErrors.coordenadas}
@@ -1059,13 +1209,15 @@ const Colmenas = () => {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
               <span style={{ fontSize: '1rem' }}>📍</span>
-              <strong>Información sobre ubicaciones</strong>
+              <strong>Información sobre ubicaciones y nodos</strong>
             </div>
             <ul style={{ margin: '0.5rem 0 0 1.5rem', padding: 0 }}>
               <li>Las coordenadas son obligatorias para nuevas colmenas</li>
               <li>Para colmenas existentes, las coordenadas son opcionales</li>
               <li>Las coordenadas deben estar en formato decimal (ej: -36.123456)</li>
               <li>Chile está entre latitudes -17° y -56°, longitudes -66° y -75°</li>
+              <li>Los nodos interior y exterior son opcionales</li>
+              <li>Solo se muestran nodos disponibles (no asignados a otras colmenas)</li>
             </ul>
           </div>
 
@@ -1092,7 +1244,7 @@ const Colmenas = () => {
         </form>
       </Modal>
 
-      {/* Modal de detalle de colmena */}
+      {/* ✅ MODAL DE DETALLE ACTUALIZADO con información de nodos */}
       <Modal
         isOpen={isDetailModalOpen}
         onClose={handleCloseDetailModal}
@@ -1154,6 +1306,33 @@ const Colmenas = () => {
                       </p>
                     </div>
                   )}
+                  
+                  {/* ✅ NUEVA INFORMACIÓN - Nodos asignados */}
+                  {colmenaDetail.nodo_interior_id && (
+                    <div>
+                      <strong>Nodo Interior:</strong>
+                      <p style={{ margin: '0.25rem 0 0', color: '#6b7280', fontFamily: 'monospace' }}>
+                        {colmenaDetail.nodo_interior_id}
+                        <br />
+                        <span style={{ fontSize: '0.875rem', color: '#059669' }}>
+                          {colmenaDetail.nodo_interior_descripcion || 'Sensor interno'}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+
+                  {colmenaDetail.nodo_exterior_id && (
+                    <div>
+                      <strong>Nodo Exterior:</strong>
+                      <p style={{ margin: '0.25rem 0 0', color: '#6b7280', fontFamily: 'monospace' }}>
+                        {colmenaDetail.nodo_exterior_id}
+                        <br />
+                        <span style={{ fontSize: '0.875rem', color: '#dc2626' }}>
+                          {colmenaDetail.nodo_exterior_descripcion || 'Sensor meteorológico'}
+                        </span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               </Card>
 
@@ -1166,6 +1345,40 @@ const Colmenas = () => {
                   <p style={{ color: '#6b7280' }}>
                     Monitoreando {colmenaDetail.nodos?.length || 0} sensores
                   </p>
+                  
+                  {/* ✅ NUEVA INFORMACIÓN - Estado de nodos */}
+                  <div style={{ 
+                    marginTop: '1rem',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '0.5rem',
+                    fontSize: '0.875rem'
+                  }}>
+                    <div style={{ 
+                      padding: '0.5rem',
+                      backgroundColor: colmenaDetail.nodo_interior_id ? '#ecfdf5' : '#f9fafb',
+                      border: `1px solid ${colmenaDetail.nodo_interior_id ? '#86efac' : '#e5e7eb'}`,
+                      borderRadius: '0.375rem'
+                    }}>
+                      <div style={{ fontWeight: '500' }}>🔌 Nodo Interior</div>
+                      <div style={{ color: colmenaDetail.nodo_interior_id ? '#059669' : '#6b7280' }}>
+                        {colmenaDetail.nodo_interior_id ? 'Asignado' : 'Sin asignar'}
+                      </div>
+                    </div>
+                    
+                    <div style={{ 
+                      padding: '0.5rem',
+                      backgroundColor: colmenaDetail.nodo_exterior_id ? '#fef2f2' : '#f9fafb',
+                      border: `1px solid ${colmenaDetail.nodo_exterior_id ? '#fca5a5' : '#e5e7eb'}`,
+                      borderRadius: '0.375rem'
+                    }}>
+                      <div style={{ fontWeight: '500' }}>🌡️ Nodo Exterior</div>
+                      <div style={{ color: colmenaDetail.nodo_exterior_id ? '#dc2626' : '#6b7280' }}>
+                        {colmenaDetail.nodo_exterior_id ? 'Asignado' : 'Sin asignar'}
+                      </div>
+                    </div>
+                  </div>
+                  
                   {currentUser && (
                     <div style={{ 
                       marginTop: '1rem',

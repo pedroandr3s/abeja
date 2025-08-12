@@ -569,116 +569,174 @@ const DashboardComplete = () => {
   };
 
   // Función MEJORADA para cargar TODOS los datos reales disponibles
-  const loadSensorData = async () => {
+  // En UserDashboard.js, actualizar la función loadSensorData:
+const loadSensorData = async () => {
     setIsLoadingData(true);
     
     try {
-      const startTime = new Date();
-      console.log('📡 [' + startTime.toLocaleTimeString() + '] Cargando TODOS los datos disponibles...');
-      
-      // Intentar primero con el endpoint específico del dashboard
-      try {
-        const dashboardResponse = await dashboard.getSensorData(8760); // 8760 horas = 1 año completo
-        console.log('📊 Respuesta dashboard:', {
-          timestamp: new Date().toLocaleTimeString(),
-          data: dashboardResponse
-        });
+        const startTime = new Date();
+        console.log('📡 [' + startTime.toLocaleTimeString() + '] Cargando datos de colmenas del usuario...');
         
-        if (dashboardResponse && dashboardResponse.combinados && dashboardResponse.combinados.length > 0) {
-          // Tomar TODOS los datos disponibles
-          const datosReales = dashboardResponse.combinados
-            .map(item => ({
-              ...item,
-              fecha: ensureDate(item.fecha)
-            }))
-            .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
-          
-          // Crear un hash de los datos para detectar cambios reales
-          const newDataHash = JSON.stringify(datosReales.map(d => ({ id: d.id, fecha: d.fecha.getTime() })));
-          
-          console.log('🔍 Comparando datos:', {
-            timestamp: new Date().toLocaleTimeString(),
-            totalRegistros: datosReales.length,
-            hashAnterior: dataHash.substring(0, 50) + '...',
-            hashNuevo: newDataHash.substring(0, 50) + '...',
-            hashIgual: dataHash === newDataHash
-          });
-          
-          if (dataHash !== newDataHash) {
-            console.log('✅ DATOS NUEVOS DETECTADOS - Actualizando dashboard');
-            
-            setSensorData(datosReales);
-            setDataHash(newDataHash);
-            setLastUpdateTime(new Date());
-            setDataSourceInfo(`Dashboard API - ${datosReales.length} registros totales`);
-          } else {
-            console.log('⏸️ Mismos datos - Sin cambios detectados');
-          }
-          
-          return;
-        } else {
-          console.warn('⚠️ Dashboard API no devolvió datos válidos');
+        // ✅ Verificar que hay usuario autenticado
+        if (!currentUser || !currentUser.id) {
+            console.error('❌ No hay usuario autenticado');
+            setAlertMessage({
+                type: 'error',
+                message: 'Error: Usuario no autenticado'
+            });
+            return;
         }
-      } catch (dashboardError) {
-        console.warn('⚠️ Error en dashboard API:', dashboardError.message);
-      }
-      
-      // Fallback: endpoint de mensajes
-      try {
-        console.log('🔄 Fallback: Intentando con endpoint de mensajes...');
-        const mensajesResponse = await mensajes.getRecientes(8760);
-        console.log('📊 Respuesta mensajes:', {
-          timestamp: new Date().toLocaleTimeString(),
-          totalMensajes: mensajesResponse?.data?.length || 0
-        });
         
-        if (mensajesResponse && mensajesResponse.data && mensajesResponse.data.length > 0) {
-          const processedData = processSensorMessages(mensajesResponse.data);
-          
-          if (processedData.length > 0) {
-            const todosLosDatos = processedData
-              .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+        try {
+            // ✅ Llamar al endpoint mejorado que solo devuelve datos de nodos activos del usuario
+            const dashboardResponse = await dashboard.getSensorData(168, currentUser.id);
+            console.log('📊 Respuesta dashboard para usuario:', {
+                timestamp: new Date().toLocaleTimeString(),
+                userId: currentUser.id,
+                summary: dashboardResponse.resumen,
+                colmenasConNodosActivos: dashboardResponse.colmenasConNodosActivos,
+                totalRegistros: dashboardResponse.totalRegistros
+            });
             
-            const newDataHash = JSON.stringify(todosLosDatos.map(d => ({ id: d.id, fecha: d.fecha.getTime() })));
-            
-            if (dataHash !== newDataHash) {
-              console.log('✅ DATOS NUEVOS desde mensajes - Actualizando dashboard');
-              
-              setSensorData(todosLosDatos);
-              setDataHash(newDataHash);
-              setLastUpdateTime(new Date());
-              setDataSourceInfo(`Mensajes API - ${todosLosDatos.length} registros totales`);
-            } else {
-              console.log('⏸️ Mismos datos desde mensajes - Sin cambios');
+            // ✅ Manejar diferentes estados de respuesta
+            if (dashboardResponse.message) {
+                // El backend devolvió un mensaje explicativo
+                console.log('ℹ️ Mensaje del servidor:', dashboardResponse.message);
+                
+                setAlertMessage({
+                    type: dashboardResponse.colmenasCount === 0 ? 'warning' : 'info',
+                    message: dashboardResponse.message
+                });
+                
+                // Limpiar datos si no hay nodos activos
+                if (dashboardResponse.colmenasConNodosActivos === 0) {
+                    setSensorData([]);
+                    setDataSourceInfo(`Sin datos - ${dashboardResponse.message}`);
+                    return;
+                }
             }
             
-            return;
-          }
+            if (dashboardResponse && dashboardResponse.combinados && dashboardResponse.combinados.length > 0) {
+                // ✅ Procesar datos válidos del usuario
+                const datosReales = dashboardResponse.combinados
+                    .map(item => ({
+                        ...item,
+                        fecha: ensureDate(item.fecha)
+                    }))
+                    .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+                
+                const newDataHash = JSON.stringify(datosReales.map(d => ({ id: d.id, fecha: d.fecha.getTime() })));
+                
+                console.log('🔍 Datos procesados del usuario:', {
+                    timestamp: new Date().toLocaleTimeString(),
+                    totalRegistros: datosReales.length,
+                    colmenasConDatos: dashboardResponse.resumen?.colmenasConDatos || 0,
+                    nodosActivos: dashboardResponse.nodosActivosCount || 0,
+                    nodosInteriores: dashboardResponse.resumen?.nodosInterioresActivos || 0,
+                    nodosExteriores: dashboardResponse.resumen?.nodosExterioresActivos || 0
+                });
+                
+                // ✅ Actualizar solo si hay datos nuevos
+                if (dataHash !== newDataHash) {
+                    console.log('✅ DATOS NUEVOS DETECTADOS - Actualizando dashboard del usuario');
+                    
+                    setSensorData(datosReales);
+                    setDataHash(newDataHash);
+                    setLastUpdateTime(new Date());
+                    
+                    // ✅ Mensaje informativo detallado
+                    const resumen = dashboardResponse.resumen;
+                    const infoDetallada = `${datosReales.length} registros de ${dashboardResponse.colmenasConNodosActivos} colmenas activas (${resumen?.nodosInterioresActivos || 0} nodos internos, ${resumen?.nodosExterioresActivos || 0} nodos externos)`;
+                    setDataSourceInfo(infoDetallada);
+                    
+                    // ✅ Mensaje de éxito con detalles
+                    if (resumen && resumen.colmenasConDatos > 0) {
+                        setAlertMessage({
+                            type: 'success',
+                            message: `✅ Datos cargados: ${resumen.colmenasConDatos} colmenas con sensores activos`
+                        });
+                    }
+                } else {
+                    console.log('⏸️ Mismos datos del usuario - Sin cambios detectados');
+                }
+                
+                return;
+            } else {
+                console.warn('⚠️ Dashboard API no devolvió datos válidos para el usuario');
+                
+                // ✅ Si no hay datos, mostrar información específica del usuario
+                const infoMessage = dashboardResponse.colmenasCount === 0 
+                    ? '❌ No tienes colmenas registradas'
+                    : dashboardResponse.colmenasConNodosActivos === 0 
+                    ? '⚠️ Tus colmenas no tienen nodos con datos recientes'
+                    : '📭 Sin datos en el período seleccionado';
+                    
+                setAlertMessage({
+                    type: 'warning',
+                    message: infoMessage
+                });
+                
+                // ✅ Limpiar datos solo si realmente no hay nada
+                if (dashboardResponse.colmenasConNodosActivos === 0) {
+                    setSensorData([]);
+                    setDataSourceInfo('Sin colmenas activas');
+                }
+            }
+        } catch (dashboardError) {
+            console.warn('⚠️ Error en dashboard API:', dashboardError.message);
+            setAlertMessage({
+                type: 'error',
+                message: `Error cargando datos: ${dashboardError.message}`
+            });
         }
-      } catch (mensajesError) {
-        console.warn('⚠️ Error en mensajes API:', mensajesError.message);
-      }
-      
-      console.log('❌ No se encontraron datos en ningún endpoint');
-      if (sensorData.length === 0) {
-        setSensorData([]);
-        setDataSourceInfo('Sin datos');
-        setAlertMessage({
-          type: 'error',
-          message: '❌ No se encontraron datos de sensores'
-        });
-      }
+        
+        // ✅ Fallback eliminado - solo usar datos del usuario autenticado
+        console.log('ℹ️ Solo se muestran datos de colmenas asociadas al usuario autenticado');
 
     } catch (err) {
-      console.error('❌ Error general cargando datos:', err);
-      setAlertMessage({
-        type: 'error',
-        message: 'Error de conexión cargando datos de sensores'
-      });
+        console.error('❌ Error general cargando datos del usuario:', err);
+        setAlertMessage({
+            type: 'error',
+            message: 'Error de conexión cargando datos de tus colmenas'
+        });
     } finally {
-      setIsLoadingData(false);
+        setIsLoadingData(false);
     }
-  };
+};
+
+// ✅ NUEVA: Función auxiliar para obtener información de nodos del usuario
+const getUserNodeInfo = async () => {
+    try {
+        if (!currentUser || !currentUser.id) return null;
+        
+        const colmenasResponse = await colmenas.getByDueno(currentUser.id);
+        const userColmenas = colmenasResponse.data || [];
+        
+        const nodosInfo = {
+            colmenasTotal: userColmenas.length,
+            colmenasConNodos: userColmenas.filter(c => 
+                c.nodo_interior_id || c.nodo_exterior_id
+            ).length,
+            nodosInteriores: userColmenas.filter(c => c.nodo_interior_id).map(c => ({
+                nodoId: c.nodo_interior_id,
+                colmenaId: c.id,
+                descripcion: c.descripcion
+            })),
+            nodosExteriores: userColmenas.filter(c => c.nodo_exterior_id).map(c => ({
+                nodoId: c.nodo_exterior_id,
+                colmenaId: c.id,
+                descripcion: c.descripcion
+            }))
+        };
+        
+        console.log('📋 Info de nodos del usuario:', nodosInfo);
+        return nodosInfo;
+        
+    } catch (error) {
+        console.error('Error obteniendo info de nodos del usuario:', error);
+        return null;
+    }
+};
 
   // Función para procesar mensajes
   const processSensorMessages = (messages) => {
