@@ -235,22 +235,19 @@ export const ApiProvider = ({ children }) => {
     delete: (id) => apiRequest('delete', `/roles/${id}`),
   };
 
-  // En ApiContext.js, asegúrate de que el objeto colmenas tenga este método:
-
-const colmenas = {
+  const colmenas = {
     getAll: () => apiRequest('get', '/colmenas'),
     getById: (id) => apiRequest('get', `/colmenas/${id}`),
     create: (data) => apiRequest('post', '/colmenas', data),
     update: (id, data) => apiRequest('put', `/colmenas/${id}`, data),
     delete: (id) => apiRequest('delete', `/colmenas/${id}`),
-    // ✅ Este método es el que está fallando
     getByDueno: (duenoId) => apiRequest('get', `/colmenas/dueno/${duenoId}`),
     getUbicaciones: (id) => apiRequest('get', `/colmenas/${id}/ubicaciones`),
     addUbicacion: (id, data) => apiRequest('post', `/colmenas/${id}/ubicaciones`, data),
     getNodos: (id) => apiRequest('get', `/colmenas/${id}/nodos`),
     addNodo: (id, data) => apiRequest('post', `/colmenas/${id}/nodos`, data),
     removeNodo: (colmenaId, nodoId) => apiRequest('delete', `/colmenas/${colmenaId}/nodos/${nodoId}`),
-};
+  };
 
   const nodos = {
     getAll: () => apiRequest('get', '/nodos'),
@@ -262,6 +259,9 @@ const colmenas = {
     getUbicaciones: (id) => apiRequest('get', `/nodos/${id}/ubicaciones`),
     addUbicacion: (id, data) => apiRequest('post', `/nodos/${id}/ubicaciones`, data),
     getMensajes: (id, limit = 100) => apiRequest('get', `/nodos/${id}/mensajes?limit=${limit}`),
+    // ✅ NUEVOS MÉTODOS para obtener nodos disponibles
+    getInterioresDisponibles: () => apiRequest('get', '/nodos/interiores/disponibles'),
+    getExterioresDisponibles: () => apiRequest('get', '/nodos/exteriores/disponibles'),
   };
 
   const nodoTipos = {
@@ -290,7 +290,7 @@ const colmenas = {
     getMonitoreo: () => apiRequest('get', '/dashboard/monitoreo'),
     // NUEVO: Método específico para datos de sensores del dashboard
     getSensorData: (hours = 168) => apiRequest('get', `/dashboard/sensor-data?hours=${hours}`)
-};
+  };
 
   const selects = {
     usuarios: () => apiRequest('get', '/select/usuarios', null, false),
@@ -346,4 +346,4 @@ const colmenas = {
       {children}
     </ApiContext.Provider>
   );
-};  
+};
