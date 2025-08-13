@@ -14,9 +14,7 @@ const ROLE_CONFIG = {
   API: {
     name: 'Apicultor',
     defaultRoute: '/user-dashboard',
-    description: 'Gestión de colmenas propias',
-    features: ['Mis colmenas', 'Reportes personales', 'Monitoreo en tiempo real', 'Perfil personal']
-  }
+    description: 'Gestión de colmenas propias'  }
 };
 
 const Login = ({ onLoginSuccess }) => {
@@ -353,36 +351,6 @@ const Login = ({ onLoginSuccess }) => {
             </div>
             <h1 className="login-title">SmartBee</h1>
             <p className="login-subtitle">Sistema de Gestión de Colmenas</p>
-            
-            <div className="login-features">
-              <div className="login-feature">
-                <div className="login-feature-dot"></div>
-                <span>Monitoreo en tiempo real</span>
-              </div>
-              <div className="login-feature">
-                <div className="login-feature-dot"></div>
-                <span>Gestión de usuarios y colmenas</span>
-              </div>
-              <div className="login-feature">
-                <div className="login-feature-dot"></div>
-                <span>Control de sensores IoT</span>
-              </div>
-            </div>
-
-            {/* Información de roles disponibles */}
-            <div className="mt-8 p-4 bg-white bg-opacity-10 rounded-lg">
-              <h3 className="text-white text-sm font-medium mb-3">Roles del Sistema:</h3>
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center text-white text-opacity-90">
-                  <span className="w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
-                  <strong>Administrador:</strong> Gestión completa
-                </div>
-                <div className="flex items-center text-white text-opacity-90">
-                  <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                  <strong>Apicultor:</strong> Gestión personal
-                </div>
-              </div>
-            </div>
           </div>
           
           <div className="login-decoration-1"></div>
