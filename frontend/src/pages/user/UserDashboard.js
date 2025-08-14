@@ -33,12 +33,13 @@ const DashboardComplete = () => {
   const [dataHash, setDataHash] = useState('');
   const [previousDataLength, setPreviousDataLength] = useState(0);
   
-  // Estados para filtros de tiempo - CAMBIO: Por defecto '1dia' en lugar de '1semana'
+  // Estados para filtros de tiempo - Con datos individuales
   const [timeFilter, setTimeFilter] = useState('1dia');
   const [customDateRange, setCustomDateRange] = useState({
     start: null,
     end: null
   });
+  const [showRawData, setShowRawData] = useState(true); // NUEVO: Controla si mostrar datos individuales
 
   const API_BASE = 'https://backend-production-eb26.up.railway.app/api';
 
@@ -48,35 +49,37 @@ const DashboardComplete = () => {
   const pesoChartRef = useRef(null);
   const chartInstances = useRef({});
 
-  // Definir los filtros de tiempo disponibles con agrupación dinámica
+  // Definir los filtros de tiempo disponibles - SIMPLIFICADO para datos individuales
   const timeFilters = [
     { 
+      key: '1hora', 
+      label: '⏰ Última Hora', 
+      hours: 1,
+      description: 'Datos individuales cada recepción'
+    },
+    { 
+      key: '6horas', 
+      label: '🕕 Últimas 6 Horas', 
+      hours: 6,
+      description: 'Datos individuales cada recepción'
+    },
+    { 
       key: '1dia', 
-      label: '📅 Último Día (30 min)', 
+      label: '📅 Último Día', 
       hours: 24,
-      grouping: 'media_hora',
-      description: 'Un dato cada 30 minutos'
+      description: 'Datos individuales cada recepción'
+    },
+    { 
+      key: '3dias', 
+      label: '📆 Últimos 3 Días', 
+      hours: 72,
+      description: 'Datos individuales cada recepción'
     },
     { 
       key: '1semana', 
-      label: '📆 Última Semana (Diario)', 
+      label: '📊 Última Semana', 
       hours: 168,
-      grouping: 'diario',
-      description: 'Un dato por día'
-    },
-    { 
-      key: '1mes', 
-      label: '🗓️ Último Mes (Semanal)', 
-      hours: 720,
-      grouping: 'semanal',
-      description: 'Semana 1, 2, 3, 4'
-    },
-    { 
-      key: '1año', 
-      label: '📊 Último Año (Mensual)', 
-      hours: 8760,
-      grouping: 'mensual',
-      description: 'Mes a mes'
+      description: 'Datos individuales cada recepción'
     }
   ];
 
@@ -126,8 +129,8 @@ const DashboardComplete = () => {
       const hasNewData = filteredData.length !== previousDataLength;
 
       if (isInitialLoad || hasNewData) {
-        console.log('🎨 Recreando gráficos con datos agrupados dinámicamente...');
-        processDataByFilter();
+        console.log('🎨 Creando gráficos con datos individuales...');
+        processIndividualData();
         createInitialCharts();
       }
 
@@ -145,242 +148,65 @@ const DashboardComplete = () => {
         }
       });
     }
-  }, [filteredData]);
+  }, [filteredData, showRawData]);
 
-  // NUEVA: Función para procesar datos según el filtro seleccionado
-  const processDataByFilter = () => {
+  // NUEVA: Función para procesar datos individuales (sin agrupación)
+  const processIndividualData = () => {
     if (!filteredData || filteredData.length === 0) {
       setProcessedData({ temperatura: [], humedad: [], peso: [] });
       return;
     }
 
-    const selectedFilter = timeFilters.find(f => f.key === timeFilter);
-    const groupingType = selectedFilter ? selectedFilter.grouping : 'diario';
+    console.log(`📊 Procesando ${filteredData.length} datos individuales sin agrupación`);
 
-    console.log(`📊 Procesando datos con agrupación: ${groupingType}`);
+    // Separar datos por tipo de sensor
+    const temperaturaData = filteredData
+      .filter(item => item.temperatura !== null && item.temperatura !== undefined)
+      .map(item => ({
+        ...item,
+        fechaStr: formatIndividualDateTime(item.fecha),
+        valor: item.temperatura
+      }));
 
-    let processedTemp = [];
-    let processedHum = [];
-    let processedPeso = [];
+    const humedadData = filteredData
+      .filter(item => item.humedad !== null && item.humedad !== undefined)
+      .map(item => ({
+        ...item,
+        fechaStr: formatIndividualDateTime(item.fecha),
+        valor: item.humedad
+      }));
 
-    switch (groupingType) {
-      case 'media_hora':
-        processedTemp = groupByHalfHour(filteredData, 'temperatura');
-        processedHum = groupByHalfHour(filteredData, 'humedad');
-        processedPeso = groupByHalfHour(filteredData.filter(d => d.tipo === 'interno' && d.peso !== null), 'peso');
-        break;
-        
-      case 'diario':
-        processedTemp = groupByDay(filteredData, 'temperatura');
-        processedHum = groupByDay(filteredData, 'humedad');
-        processedPeso = groupByDay(filteredData.filter(d => d.tipo === 'interno' && d.peso !== null), 'peso');
-        break;
-        
-      case 'semanal':
-        processedTemp = groupByWeek(filteredData, 'temperatura');
-        processedHum = groupByWeek(filteredData, 'humedad');
-        processedPeso = groupByWeek(filteredData.filter(d => d.tipo === 'interno' && d.peso !== null), 'peso');
-        break;
-        
-      case 'mensual':
-        processedTemp = groupByMonth(filteredData, 'temperatura');
-        processedHum = groupByMonth(filteredData, 'humedad');
-        processedPeso = groupByMonth(filteredData.filter(d => d.tipo === 'interno' && d.peso !== null), 'peso');
-        break;
-        
-      default:
-        // Fallback a agrupación por hora
-        processedTemp = groupByHour(filteredData, 'temperatura');
-        processedHum = groupByHour(filteredData, 'humedad');
-        processedPeso = groupByHour(filteredData.filter(d => d.tipo === 'interno' && d.peso !== null), 'peso');
-    }
+    const pesoData = filteredData
+      .filter(item => item.peso !== null && item.peso !== undefined && item.tipo === 'interno')
+      .map(item => ({
+        ...item,
+        fechaStr: formatIndividualDateTime(item.fecha),
+        valor: item.peso
+      }));
 
-    console.log('📊 Datos procesados:', {
-      agrupacion: groupingType,
-      temperatura: processedTemp.length,
-      humedad: processedHum.length,
-      peso: processedPeso.length
+    console.log('📊 Datos individuales procesados:', {
+      temperatura: temperaturaData.length,
+      humedad: humedadData.length,
+      peso: pesoData.length
     });
 
     setProcessedData({
-      temperatura: processedTemp,
-      humedad: processedHum,
-      peso: processedPeso
+      temperatura: temperaturaData,
+      humedad: humedadData,
+      peso: pesoData
     });
   };
 
-  // Función para agrupar por media hora (30 minutos)
-  const groupByHalfHour = (data, field) => {
-    const grouped = {};
+  // NUEVA: Función para formatear fecha y hora individual
+  const formatIndividualDateTime = (fecha) => {
+    const date = ensureDate(fecha);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
     
-    data.forEach(item => {
-      if (item[field] !== null && item[field] !== undefined) {
-        const date = ensureDate(item.fecha);
-        const minutes = date.getMinutes();
-        const halfHourMark = minutes < 30 ? 0 : 30;
-        const halfHourKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(halfHourMark).padStart(2, '0')}`;
-        
-        if (!grouped[halfHourKey]) {
-          grouped[halfHourKey] = {
-            fecha: halfHourKey,
-            valores: [],
-            tipos: {}
-          };
-        }
-        
-        grouped[halfHourKey].valores.push(item[field]);
-        
-        if (!grouped[halfHourKey].tipos[item.tipo]) {
-          grouped[halfHourKey].tipos[item.tipo] = [];
-        }
-        grouped[halfHourKey].tipos[item.tipo].push(item[field]);
-      }
-    });
-
-    return processGroupedData(grouped, '30 minutos');
-  };
-
-  // Función para agrupar por día
-  const groupByDay = (data, field) => {
-    const grouped = {};
-    
-    data.forEach(item => {
-      if (item[field] !== null && item[field] !== undefined) {
-        const date = ensureDate(item.fecha);
-        const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        
-        if (!grouped[dayKey]) {
-          grouped[dayKey] = {
-            fecha: dayKey,
-            valores: [],
-            tipos: {}
-          };
-        }
-        
-        grouped[dayKey].valores.push(item[field]);
-        
-        if (!grouped[dayKey].tipos[item.tipo]) {
-          grouped[dayKey].tipos[item.tipo] = [];
-        }
-        grouped[dayKey].tipos[item.tipo].push(item[field]);
-      }
-    });
-
-    return processGroupedData(grouped, 'día');
-  };
-
-  // Función para agrupar por semana
-  const groupByWeek = (data, field) => {
-    const grouped = {};
-    
-    data.forEach(item => {
-      if (item[field] !== null && item[field] !== undefined) {
-        const date = ensureDate(item.fecha);
-        const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-        const weekOfMonth = Math.ceil((date.getDate() + startOfMonth.getDay()) / 7);
-        const weekKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-Semana-${weekOfMonth}`;
-        
-        if (!grouped[weekKey]) {
-          grouped[weekKey] = {
-            fecha: weekKey,
-            valores: [],
-            tipos: {}
-          };
-        }
-        
-        grouped[weekKey].valores.push(item[field]);
-        
-        if (!grouped[weekKey].tipos[item.tipo]) {
-          grouped[weekKey].tipos[item.tipo] = [];
-        }
-        grouped[weekKey].tipos[item.tipo].push(item[field]);
-      }
-    });
-
-    return processGroupedData(grouped, 'semana');
-  };
-
-  // Función para agrupar por mes
-  const groupByMonth = (data, field) => {
-    const grouped = {};
-    
-    data.forEach(item => {
-      if (item[field] !== null && item[field] !== undefined) {
-        const date = ensureDate(item.fecha);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        
-        if (!grouped[monthKey]) {
-          grouped[monthKey] = {
-            fecha: monthKey,
-            valores: [],
-            tipos: {}
-          };
-        }
-        
-        grouped[monthKey].valores.push(item[field]);
-        
-        if (!grouped[monthKey].tipos[item.tipo]) {
-          grouped[monthKey].tipos[item.tipo] = [];
-        }
-        grouped[monthKey].tipos[item.tipo].push(item[field]);
-      }
-    });
-
-    return processGroupedData(grouped, 'mes');
-  };
-
-  // Función para agrupar por hora (fallback)
-  const groupByHour = (data, field) => {
-    const grouped = {};
-    
-    data.forEach(item => {
-      if (item[field] !== null && item[field] !== undefined) {
-        const date = ensureDate(item.fecha);
-        const hourKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:00`;
-        
-        if (!grouped[hourKey]) {
-          grouped[hourKey] = {
-            fecha: hourKey,
-            valores: [],
-            tipos: {}
-          };
-        }
-        
-        grouped[hourKey].valores.push(item[field]);
-        
-        if (!grouped[hourKey].tipos[item.tipo]) {
-          grouped[hourKey].tipos[item.tipo] = [];
-        }
-        grouped[hourKey].tipos[item.tipo].push(item[field]);
-      }
-    });
-
-    return processGroupedData(grouped, 'hora');
-  };
-
-  // Función auxiliar para procesar datos agrupados
-  const processGroupedData = (grouped, periodType) => {
-    return Object.keys(grouped)
-      .sort()
-      .map(key => {
-        const group = grouped[key];
-        const result = {
-          fecha: new Date(key.includes('Semana') ? key.split('-Semana')[0] + '-01' : key + (key.length === 7 ? '-01' : '')),
-          fechaStr: key,
-          promedio: group.valores.reduce((sum, val) => sum + val, 0) / group.valores.length,
-          cantidad: group.valores.length,
-          periodo: periodType
-        };
-
-        // Para temperatura y humedad, calcular promedios por tipo
-        Object.keys(group.tipos).forEach(tipo => {
-          const valores = group.tipos[tipo];
-          result[`promedio_${tipo}`] = valores.reduce((sum, val) => sum + val, 0) / valores.length;
-          result[`cantidad_${tipo}`] = valores.length;
-        });
-
-        return result;
-      });
+    return `${day}/${month} ${hours}:${minutes}:${seconds}`;
   };
 
   // Función para aplicar filtros de tiempo
@@ -450,7 +276,7 @@ const DashboardComplete = () => {
       }
     });
 
-    // Crear nuevos gráficos con datos procesados dinámicamente
+    // Crear nuevos gráficos con datos individuales
     setTimeout(() => {
       try {
         if (temperaturaChartRef.current && processedData.temperatura.length > 0) {
@@ -459,7 +285,7 @@ const DashboardComplete = () => {
             existingChart.destroy();
           }
           const ctx = temperaturaChartRef.current.getContext('2d');
-          chartInstances.current.temperatura = createChartJSInstance(ctx, processedData.temperatura, 'temperatura');
+          chartInstances.current.temperatura = createIndividualChartJSInstance(ctx, processedData.temperatura, 'temperatura');
         }
         
         if (humedadChartRef.current && processedData.humedad.length > 0) {
@@ -468,7 +294,7 @@ const DashboardComplete = () => {
             existingChart.destroy();
           }
           const ctx = humedadChartRef.current.getContext('2d');
-          chartInstances.current.humedad = createChartJSInstance(ctx, processedData.humedad, 'humedad');
+          chartInstances.current.humedad = createIndividualChartJSInstance(ctx, processedData.humedad, 'humedad');
         }
         
         if (pesoChartRef.current && processedData.peso.length > 0) {
@@ -477,7 +303,7 @@ const DashboardComplete = () => {
             existingChart.destroy();
           }
           const ctx = pesoChartRef.current.getContext('2d');
-          chartInstances.current.peso = createChartJSInstance(ctx, processedData.peso, 'peso');
+          chartInstances.current.peso = createIndividualChartJSInstance(ctx, processedData.peso, 'peso');
         }
       } catch (error) {
         console.error('Error creando gráficos:', error);
@@ -568,16 +394,13 @@ const DashboardComplete = () => {
     }
   };
 
-  // Función MEJORADA para cargar TODOS los datos reales disponibles
-  // En UserDashboard.js, actualizar la función loadSensorData:
-const loadSensorData = async () => {
+  const loadSensorData = async () => {
     setIsLoadingData(true);
     
     try {
         const startTime = new Date();
-        console.log('📡 [' + startTime.toLocaleTimeString() + '] Cargando datos de colmenas del usuario...');
+        console.log('📡 [' + startTime.toLocaleTimeString() + '] Cargando datos individuales de colmenas del usuario...');
         
-        // ✅ Verificar que hay usuario autenticado
         if (!currentUser || !currentUser.id) {
             console.error('❌ No hay usuario autenticado');
             setAlertMessage({
@@ -588,19 +411,16 @@ const loadSensorData = async () => {
         }
         
         try {
-            // ✅ Llamar al endpoint mejorado que solo devuelve datos de nodos activos del usuario
+            // Llamar al endpoint para obtener datos individuales (sin agrupación)
             const dashboardResponse = await dashboard.getSensorData(168, currentUser.id);
-            console.log('📊 Respuesta dashboard para usuario:', {
+            console.log('📊 Respuesta dashboard para datos individuales:', {
                 timestamp: new Date().toLocaleTimeString(),
                 userId: currentUser.id,
-                summary: dashboardResponse.resumen,
-                colmenasConNodosActivos: dashboardResponse.colmenasConNodosActivos,
-                totalRegistros: dashboardResponse.totalRegistros
+                totalRegistros: dashboardResponse.totalRegistros,
+                colmenasConNodosActivos: dashboardResponse.colmenasConNodosActivos
             });
             
-            // ✅ Manejar diferentes estados de respuesta
             if (dashboardResponse.message) {
-                // El backend devolvió un mensaje explicativo
                 console.log('ℹ️ Mensaje del servidor:', dashboardResponse.message);
                 
                 setAlertMessage({
@@ -608,7 +428,6 @@ const loadSensorData = async () => {
                     message: dashboardResponse.message
                 });
                 
-                // Limpiar datos si no hay nodos activos
                 if (dashboardResponse.colmenasConNodosActivos === 0) {
                     setSensorData([]);
                     setDataSourceInfo(`Sin datos - ${dashboardResponse.message}`);
@@ -617,54 +436,44 @@ const loadSensorData = async () => {
             }
             
             if (dashboardResponse && dashboardResponse.combinados && dashboardResponse.combinados.length > 0) {
-                // ✅ Procesar datos válidos del usuario
-                const datosReales = dashboardResponse.combinados
+                // Procesar datos individuales sin agrupación
+                const datosIndividuales = dashboardResponse.combinados
                     .map(item => ({
                         ...item,
                         fecha: ensureDate(item.fecha)
                     }))
                     .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
                 
-                const newDataHash = JSON.stringify(datosReales.map(d => ({ id: d.id, fecha: d.fecha.getTime() })));
+                const newDataHash = JSON.stringify(datosIndividuales.map(d => ({ id: d.id, fecha: d.fecha.getTime() })));
                 
-                console.log('🔍 Datos procesados del usuario:', {
+                console.log('🔍 Datos individuales procesados:', {
                     timestamp: new Date().toLocaleTimeString(),
-                    totalRegistros: datosReales.length,
-                    colmenasConDatos: dashboardResponse.resumen?.colmenasConDatos || 0,
-                    nodosActivos: dashboardResponse.nodosActivosCount || 0,
-                    nodosInteriores: dashboardResponse.resumen?.nodosInterioresActivos || 0,
-                    nodosExteriores: dashboardResponse.resumen?.nodosExterioresActivos || 0
+                    totalRegistros: datosIndividuales.length,
+                    nodosActivos: dashboardResponse.nodosActivosCount || 0
                 });
                 
-                // ✅ Actualizar solo si hay datos nuevos
                 if (dataHash !== newDataHash) {
-                    console.log('✅ DATOS NUEVOS DETECTADOS - Actualizando dashboard del usuario');
+                    console.log('✅ DATOS INDIVIDUALES NUEVOS - Actualizando dashboard');
                     
-                    setSensorData(datosReales);
+                    setSensorData(datosIndividuales);
                     setDataHash(newDataHash);
                     setLastUpdateTime(new Date());
                     
-                    // ✅ Mensaje informativo detallado
-                    const resumen = dashboardResponse.resumen;
-                    const infoDetallada = `${datosReales.length} registros de ${dashboardResponse.colmenasConNodosActivos} colmenas activas (${resumen?.nodosInterioresActivos || 0} nodos internos, ${resumen?.nodosExterioresActivos || 0} nodos externos)`;
+                    const infoDetallada = `${datosIndividuales.length} registros individuales de ${dashboardResponse.colmenasConNodosActivos} colmenas activas`;
                     setDataSourceInfo(infoDetallada);
                     
-                    // ✅ Mensaje de éxito con detalles
-                    if (resumen && resumen.colmenasConDatos > 0) {
-                        setAlertMessage({
-                            type: 'success',
-                            message: `✅ Datos cargados: ${resumen.colmenasConDatos} colmenas con sensores activos`
-                        });
-                    }
+                    setAlertMessage({
+                        type: 'success',
+                        message: `✅ Datos individuales cargados: ${datosIndividuales.length} registros sin agrupación`
+                    });
                 } else {
-                    console.log('⏸️ Mismos datos del usuario - Sin cambios detectados');
+                    console.log('⏸️ Mismos datos individuales - Sin cambios detectados');
                 }
                 
                 return;
             } else {
                 console.warn('⚠️ Dashboard API no devolvió datos válidos para el usuario');
                 
-                // ✅ Si no hay datos, mostrar información específica del usuario
                 const infoMessage = dashboardResponse.colmenasCount === 0 
                     ? '❌ No tienes colmenas registradas'
                     : dashboardResponse.colmenasConNodosActivos === 0 
@@ -676,7 +485,6 @@ const loadSensorData = async () => {
                     message: infoMessage
                 });
                 
-                // ✅ Limpiar datos solo si realmente no hay nada
                 if (dashboardResponse.colmenasConNodosActivos === 0) {
                     setSensorData([]);
                     setDataSourceInfo('Sin colmenas activas');
@@ -689,130 +497,16 @@ const loadSensorData = async () => {
                 message: `Error cargando datos: ${dashboardError.message}`
             });
         }
-        
-        // ✅ Fallback eliminado - solo usar datos del usuario autenticado
-        console.log('ℹ️ Solo se muestran datos de colmenas asociadas al usuario autenticado');
 
     } catch (err) {
-        console.error('❌ Error general cargando datos del usuario:', err);
+        console.error('❌ Error general cargando datos individuales:', err);
         setAlertMessage({
             type: 'error',
-            message: 'Error de conexión cargando datos de tus colmenas'
+            message: 'Error de conexión cargando datos individuales de tus colmenas'
         });
     } finally {
         setIsLoadingData(false);
     }
-};
-
-// ✅ NUEVA: Función auxiliar para obtener información de nodos del usuario
-const getUserNodeInfo = async () => {
-    try {
-        if (!currentUser || !currentUser.id) return null;
-        
-        const colmenasResponse = await colmenas.getByDueno(currentUser.id);
-        const userColmenas = colmenasResponse.data || [];
-        
-        const nodosInfo = {
-            colmenasTotal: userColmenas.length,
-            colmenasConNodos: userColmenas.filter(c => 
-                c.nodo_interior_id || c.nodo_exterior_id
-            ).length,
-            nodosInteriores: userColmenas.filter(c => c.nodo_interior_id).map(c => ({
-                nodoId: c.nodo_interior_id,
-                colmenaId: c.id,
-                descripcion: c.descripcion
-            })),
-            nodosExteriores: userColmenas.filter(c => c.nodo_exterior_id).map(c => ({
-                nodoId: c.nodo_exterior_id,
-                colmenaId: c.id,
-                descripcion: c.descripcion
-            }))
-        };
-        
-        console.log('📋 Info de nodos del usuario:', nodosInfo);
-        return nodosInfo;
-        
-    } catch (error) {
-        console.error('Error obteniendo info de nodos del usuario:', error);
-        return null;
-    }
-};
-
-  // Función para procesar mensajes
-  const processSensorMessages = (messages) => {
-    if (!messages || !Array.isArray(messages)) {
-      console.warn('⚠️ Mensajes inválidos:', messages);
-      return [];
-    }
-
-    console.log('🔄 Procesando', messages.length, 'mensajes para obtener TODOS los datos...');
-    
-    const nodoInterno = 'NODO-BEF8C985-0FF3-4874-935B-40AA8A235FF7';
-    const nodoExterno = 'NODO-B5B3ABC4-E0CE-4662-ACB3-7A631C12394A';
-    const nodoReal = 'NODO-7881883A-97A5-47E0-869C-753E99E1B168';
-    
-    const nodosUnicos = [...new Set(messages.map(m => m.nodo_id))];
-    console.log('📋 Nodos únicos en mensajes:', nodosUnicos);
-    
-    const sensorMessages = messages
-      .filter(msg => {
-        const hasPayload = msg.payload && typeof msg.payload === 'object';
-        
-        const hasSensorData = hasPayload && (
-          msg.payload.temperatura !== undefined || 
-          msg.payload.humedad !== undefined ||
-          msg.payload.peso !== undefined ||
-          msg.payload.temperature !== undefined ||
-          msg.payload.humidity !== undefined ||
-          msg.payload.weight !== undefined
-        );
-        
-        return hasPayload && hasSensorData;
-      })
-      .map(msg => {
-        const payload = msg.payload;
-        const temperatura = payload.temperatura || payload.temperature || null;
-        const humedad = payload.humedad || payload.humidity || null;
-        const peso = payload.peso || payload.weight || null;
-        
-        let tipo = 'sensor';
-        if (msg.nodo_id === nodoInterno) {
-          tipo = 'interno';
-        } else if (msg.nodo_id === nodoExterno) {
-          tipo = 'externo';
-        } else if (msg.nodo_id === nodoReal) {
-          tipo = 'real';
-        } else {
-          tipo = peso !== null ? 'interno' : 'externo';
-        }
-        
-        const fechaOriginal = msg.fecha_recepcion || msg.fecha;
-        const fechaValida = ensureDate(fechaOriginal);
-        
-        return {
-          id: msg.id,
-          fecha: fechaValida,
-          temperatura: temperatura ? parseFloat(temperatura) : null,
-          humedad: humedad ? parseFloat(humedad) : null,
-          peso: peso ? parseFloat(peso) : null,
-          nodo_id: msg.nodo_id,
-          topico: msg.topico,
-          tipo: tipo
-        };
-      })
-      .filter(item => {
-        return item.temperatura !== null || item.humedad !== null || item.peso !== null;
-      })
-      .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
-
-    console.log('✅ Mensajes procesados (TODOS los datos):', sensorMessages.length);
-    console.log('📊 Desglose por tipo:', {
-      internos: sensorMessages.filter(m => m.tipo === 'interno').length,
-      externos: sensorMessages.filter(m => m.tipo === 'externo').length,
-      otros: sensorMessages.filter(m => m.tipo === 'sensor').length
-    });
-    
-    return sensorMessages;
   };
 
   const handleRefresh = () => {
@@ -820,9 +514,9 @@ const getUserNodeInfo = async () => {
     loadDashboardData();
   };
 
-  // Función para crear gráficos con Chart.js - MODIFICADA PARA DATOS DINÁMICOS
-  const createSpecificChart = (data, chartType, title, chartId) => {
-    if (!data || data.length < 2) {
+  // NUEVA: Función para crear gráficos con datos individuales
+  const createIndividualChart = (data, chartType, title, chartId) => {
+    if (!data || data.length < 1) {
       return (
         <div style={{
           background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
@@ -834,7 +528,7 @@ const getUserNodeInfo = async () => {
         }}>
           <h3 style={{ margin: 0, color: '#6b7280' }}>📊 {title}</h3>
           <p style={{ color: '#9ca3af', margin: '16px 0 0 0' }}>
-            No hay suficientes datos para mostrar el gráfico en el período seleccionado
+            No hay datos individuales para mostrar en el período seleccionado
           </p>
         </div>
       );
@@ -872,7 +566,7 @@ const getUserNodeInfo = async () => {
             textAlign: 'center',
             letterSpacing: '0.025em'
           }}>
-            📊 {title}
+            📊 {title} (Datos Individuales)
           </h3>
         </div>
         
@@ -895,7 +589,7 @@ const getUserNodeInfo = async () => {
           />
         </div>
         
-        {/* Información del filtro aplicado */}
+        {/* Información de datos individuales */}
         <div style={{ 
           display: 'flex',
           gap: '16px',
@@ -907,169 +601,231 @@ const getUserNodeInfo = async () => {
           border: '1px solid rgba(229, 231, 235, 0.5)'
         }}>
           <span style={{ fontSize: '12px', color: '#6b7280' }}>
-            {data.length} períodos con datos
+            {data.length} lecturas individuales
           </span>
+          {data.length > 0 && (
+            <span style={{ fontSize: '12px', color: '#6b7280' }}>
+              Desde: {data[0].fechaStr} → Hasta: {data[data.length - 1].fechaStr}
+            </span>
+          )}
         </div>
       </div>
     );
   };
 
-  // Función auxiliar para crear instancias de Chart.js - MODIFICADA PARA AGRUPACIÓN DINÁMICA
-  const createChartJSInstance = (ctx, data, chartType) => {
-    if (!data || data.length < 2) return null;
+  // NUEVA: Función para crear instancias de Chart.js con datos individuales
+  const createIndividualChartJSInstance = (ctx, data, chartType) => {
+    if (!data || data.length < 1) return null;
 
     let datasets = [];
     let labels = [];
     let yAxisLabel = '';
-    const selectedFilter = timeFilters.find(f => f.key === timeFilter);
-    const groupingType = selectedFilter ? selectedFilter.grouping : 'diario';
     
-    // Formatear labels según el tipo de agrupación
-    const formatLabel = (fechaStr, grouping) => {
-      switch (grouping) {
-        case 'media_hora':
-          return fechaStr; // Ya viene formateado como "YYYY-MM-DD HH:mm"
-        case 'diario':
-          const [year, month, day] = fechaStr.split('-');
-          return `${day}/${month}`;
-        case 'semanal':
-          return fechaStr.replace('-Semana-', ' S'); // "2024-01-Semana-1" -> "2024-01 S1"
-        case 'mensual':
-          const [yr, mn] = fechaStr.split('-');
-          const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-          return `${months[parseInt(mn) - 1]} ${yr}`;
-        default:
-          return fechaStr;
-      }
-    };
-
-    labels = data.map(d => formatLabel(d.fechaStr, groupingType));
+    // Separar por tipo de nodo para temperatura y humedad
+    const internoData = data.filter(d => d.tipo === 'interno').sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+    const externoData = data.filter(d => d.tipo === 'externo').sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+    const realData = data.filter(d => d.tipo === 'real').sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
+    
+    // Crear labels únicos basados en TODOS los datos combinados
+    const allTimes = [...new Set(data.map(d => d.fechaStr))].sort();
+    labels = allTimes;
+    
+    // Limitar la cantidad de labels mostrados si hay demasiados para evitar solapamiento
+    if (labels.length > 100) {
+      const step = Math.ceil(labels.length / 100);
+      labels = labels.filter((_, index) => index % step === 0);
+    }
     
     switch (chartType) {
       case 'temperatura':
-        yAxisLabel = `Temperatura Promedio por ${data[0]?.periodo || 'período'} (°C)`;
-        
-        // Separar datos internos y externos
-        const hasInterno = data.some(d => d.promedio_interno !== undefined);
-        const hasExterno = data.some(d => d.promedio_externo !== undefined);
+        yAxisLabel = 'Temperatura Individual (°C)';
         
         datasets = [];
         
-        if (hasInterno) {
+        if (internoData.length > 0) {
           datasets.push({
-            label: `Temperatura Interna (${data[0]?.periodo || 'período'})`,
-            data: data.map(d => d.promedio_interno || null),
+            label: `Temperatura Interna (${internoData.length} lecturas)`,
+            data: internoData.map(d => ({
+              x: d.fechaStr,
+              y: d.valor
+            })),
             borderColor: '#ef4444',
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
-            tension: 0.4,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            tension: 0.1,
+            pointRadius: 3,
+            pointHoverRadius: 5,
             pointBackgroundColor: '#ef4444',
             pointBorderColor: '#ffffff',
-            pointBorderWidth: 2,
-            fill: false
+            pointBorderWidth: 1,
+            fill: false,
+            spanGaps: false,
+            showLine: true
           });
         }
         
-        if (hasExterno) {
+        if (externoData.length > 0) {
           datasets.push({
-            label: `Temperatura Externa (${data[0]?.periodo || 'período'})`,
-            data: data.map(d => d.promedio_externo || null),
+            label: `Temperatura Externa (${externoData.length} lecturas)`,
+            data: externoData.map(d => ({
+              x: d.fechaStr,
+              y: d.valor
+            })),
             borderColor: '#3b82f6',
             backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            tension: 0.4,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            tension: 0.1,
+            pointRadius: 3,
+            pointHoverRadius: 5,
             pointBackgroundColor: '#3b82f6',
             pointBorderColor: '#ffffff',
-            pointBorderWidth: 2,
-            fill: false
+            pointBorderWidth: 1,
+            fill: false,
+            spanGaps: false,
+            showLine: true
+          });
+        }
+        
+        if (realData.length > 0) {
+          datasets.push({
+            label: `Sensor Real (${realData.length} lecturas)`,
+            data: realData.map(d => ({
+              x: d.fechaStr,
+              y: d.valor
+            })),
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+            tension: 0.1,
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            pointBackgroundColor: '#10b981',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 1,
+            fill: false,
+            spanGaps: false,
+            showLine: true
           });
         }
         break;
         
       case 'humedad':
-        yAxisLabel = `Humedad Promedio por ${data[0]?.periodo || 'período'} (%)`;
-        
-        const hasInternoHum = data.some(d => d.promedio_interno !== undefined);
-        const hasExternoHum = data.some(d => d.promedio_externo !== undefined);
+        yAxisLabel = 'Humedad Individual (%)';
         
         datasets = [];
         
-        if (hasInternoHum) {
+        if (internoData.length > 0) {
           datasets.push({
-            label: `Humedad Interna (${data[0]?.periodo || 'período'})`,
-            data: data.map(d => d.promedio_interno || null),
+            label: `Humedad Interna (${internoData.length} lecturas)`,
+            data: internoData.map(d => ({
+              x: d.fechaStr,
+              y: d.valor
+            })),
             borderColor: '#10b981',
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
-            tension: 0.4,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            tension: 0.1,
+            pointRadius: 3,
+            pointHoverRadius: 5,
             pointBackgroundColor: '#10b981',
             pointBorderColor: '#ffffff',
-            pointBorderWidth: 2,
-            fill: false
+            pointBorderWidth: 1,
+            fill: false,
+            spanGaps: false,
+            showLine: true
           });
         }
         
-        if (hasExternoHum) {
+        if (externoData.length > 0) {
           datasets.push({
-            label: `Humedad Externa (${data[0]?.periodo || 'período'})`,
-            data: data.map(d => d.promedio_externo || null),
+            label: `Humedad Externa (${externoData.length} lecturas)`,
+            data: externoData.map(d => ({
+              x: d.fechaStr,
+              y: d.valor
+            })),
             borderColor: '#8b5cf6',
             backgroundColor: 'rgba(139, 92, 246, 0.1)',
-            tension: 0.4,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            tension: 0.1,
+            pointRadius: 3,
+            pointHoverRadius: 5,
             pointBackgroundColor: '#8b5cf6',
             pointBorderColor: '#ffffff',
-            pointBorderWidth: 2,
-            fill: false
+            pointBorderWidth: 1,
+            fill: false,
+            spanGaps: false,
+            showLine: true
+          });
+        }
+        
+        if (realData.length > 0) {
+          datasets.push({
+            label: `Sensor Real (${realData.length} lecturas)`,
+            data: realData.map(d => ({
+              x: d.fechaStr,
+              y: d.valor
+            })),
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+            tension: 0.1,
+            pointRadius: 3,
+            pointHoverRadius: 5,
+            pointBackgroundColor: '#f59e0b',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 1,
+            fill: false,
+            spanGaps: false,
+            showLine: true
           });
         }
         break;
         
       case 'peso':
-        yAxisLabel = `Peso Promedio por ${data[0]?.periodo || 'período'} (kg)`;
+        yAxisLabel = 'Peso Individual (kg)';
         
         datasets = [
           {
-            label: `Peso de la Colmena (kg/${data[0]?.periodo || 'período'})`,
-            data: data.map(d => d.promedio ? (d.promedio / 1000).toFixed(3) : null), // CONVERSIÓN A KG
+            label: `Peso de la Colmena (${data.length} lecturas)`,
+            data: data.map(d => ({
+              x: d.fechaStr,
+              y: (d.valor / 1000).toFixed(3) // CONVERSIÓN A KG
+            })),
             borderColor: '#f59e0b',
             backgroundColor: 'rgba(245, 158, 11, 0.1)',
-            tension: 0.4,
+            tension: 0.1,
             pointRadius: 4,
             pointHoverRadius: 6,
             pointBackgroundColor: '#f59e0b',
             pointBorderColor: '#ffffff',
-            pointBorderWidth: 2,
-            fill: true
+            pointBorderWidth: 1,
+            fill: true,
+            spanGaps: false,
+            showLine: true
           }
         ];
         break;
     }
 
-    if (labels.length < 2) return null;
+    if (datasets.length === 0) return null;
 
     const config = {
       type: 'line',
-      data: { labels, datasets },
+      data: { datasets }, // Solo datasets, sin labels predefinidos
       options: {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         animation: {
-          duration: 300
+          duration: 200
         },
         plugins: {
-          legend: { position: 'top' },
+          legend: { 
+            position: 'top',
+            labels: {
+              usePointStyle: true,
+              pointStyle: 'circle'
+            }
+          },
           tooltip: {
             backgroundColor: 'rgba(0, 0, 0, 0.8)',
             callbacks: {
               title: function(context) {
-                const originalData = data[context[0].dataIndex];
-                return `${context[0].label} (${originalData.cantidad} lecturas)`;
+                return `${context[0].label}`;
               },
               label: function(context) {
                 let label = context.dataset.label || '';
@@ -1090,18 +846,29 @@ const getUserNodeInfo = async () => {
         },
         scales: {
           x: {
+            type: 'category', // Usar categorías para manejar tiempos no uniformes
             title: { 
               display: true, 
-              text: selectedFilter ? selectedFilter.description : 'Período' 
+              text: 'Tiempo (Datos Individuales)' 
             },
             ticks: { 
               maxRotation: 45, 
               minRotation: 45,
-              maxTicksLimit: 20
+              maxTicksLimit: 15,
+              callback: function(value, index, values) {
+                // Mostrar solo algunos labels para evitar solapamiento
+                const totalLabels = values.length;
+                if (totalLabels > 15) {
+                  const step = Math.ceil(totalLabels / 15);
+                  return index % step === 0 ? this.getLabelForValue(value) : '';
+                }
+                return this.getLabelForValue(value);
+              }
             }
           },
           y: {
-            title: { display: true, text: yAxisLabel }
+            title: { display: true, text: yAxisLabel },
+            beginAtZero: chartType === 'peso' // Solo para peso comenzar en 0
           }
         }
       }
@@ -1110,8 +877,8 @@ const getUserNodeInfo = async () => {
     return new Chart.Chart(ctx, config);
   };
 
-  // Función para crear tabla de datos - MODIFICADA PARA AGRUPACIÓN DINÁMICA
-  const createDataTable = (data, tableType, title) => {
+  // NUEVA: Función para crear tabla de datos individuales
+  const createIndividualDataTable = (data, tableType, title) => {
     if (!data || data.length === 0) {
       return (
         <div style={{
@@ -1132,70 +899,44 @@ const getUserNodeInfo = async () => {
             📊 {title}
           </h4>
           <p style={{ color: '#6b7280', margin: 0 }}>
-            No hay datos disponibles para el período seleccionado
+            No hay datos individuales disponibles para el período seleccionado
           </p>
         </div>
       );
     }
     
-    let datosTabla = [];
-    let columnas = [];
+    // Tomar los últimos 50 registros individuales para la tabla
+    const datosTabla = data.slice(-50);
     
-    // Tomar los últimos 20 períodos para la tabla
-    datosTabla = data.slice(-20);
+    let columnas = [];
     
     switch (tableType) {
       case 'temperatura':
         columnas = [
-          { key: 'fechaStr', title: 'Período', format: (d) => d.fechaStr },
-          { key: 'promedio_interno', title: 'Temp. Interna (°C)', format: (d) => d.promedio_interno ? `${d.promedio_interno.toFixed(1)}°C` : 'N/A' },
-          { key: 'promedio_externo', title: 'Temp. Externa (°C)', format: (d) => d.promedio_externo ? `${d.promedio_externo.toFixed(1)}°C` : 'N/A' },
-          { key: 'cantidad', title: 'Lecturas', format: (d) => d.cantidad }
+          { key: 'fechaStr', title: 'Fecha/Hora', format: (d) => d.fechaStr },
+          { key: 'valor', title: 'Temperatura (°C)', format: (d) => `${d.valor.toFixed(1)}°C` },
+          { key: 'tipo', title: 'Tipo Sensor', format: (d) => d.tipo.charAt(0).toUpperCase() + d.tipo.slice(1) },
+          { key: 'nodo_id', title: 'Nodo ID', format: (d) => d.nodo_id ? d.nodo_id.substring(0, 8) + '...' : 'N/A' }
         ];
         break;
         
       case 'humedad':
         columnas = [
-          { key: 'fechaStr', title: 'Período', format: (d) => d.fechaStr },
-          { key: 'promedio_interno', title: 'Hum. Interna (%)', format: (d) => d.promedio_interno ? `${d.promedio_interno.toFixed(1)}%` : 'N/A' },
-          { key: 'promedio_externo', title: 'Hum. Externa (%)', format: (d) => d.promedio_externo ? `${d.promedio_externo.toFixed(1)}%` : 'N/A' },
-          { key: 'cantidad', title: 'Lecturas', format: (d) => d.cantidad }
+          { key: 'fechaStr', title: 'Fecha/Hora', format: (d) => d.fechaStr },
+          { key: 'valor', title: 'Humedad (%)', format: (d) => `${d.valor.toFixed(1)}%` },
+          { key: 'tipo', title: 'Tipo Sensor', format: (d) => d.tipo.charAt(0).toUpperCase() + d.tipo.slice(1) },
+          { key: 'nodo_id', title: 'Nodo ID', format: (d) => d.nodo_id ? d.nodo_id.substring(0, 8) + '...' : 'N/A' }
         ];
         break;
         
       case 'peso':
         columnas = [
-          { key: 'fechaStr', title: 'Período', format: (d) => d.fechaStr },
-          { key: 'promedio', title: 'Peso (kg)', format: (d) => d.promedio ? `${(d.promedio / 1000).toFixed(3)}kg` : 'N/A' },
-          { key: 'cantidad', title: 'Lecturas', format: (d) => d.cantidad }
+          { key: 'fechaStr', title: 'Fecha/Hora', format: (d) => d.fechaStr },
+          { key: 'valor', title: 'Peso (kg)', format: (d) => `${(d.valor / 1000).toFixed(3)}kg` },
+          { key: 'tipo', title: 'Tipo Sensor', format: (d) => d.tipo.charAt(0).toUpperCase() + d.tipo.slice(1) },
+          { key: 'nodo_id', title: 'Nodo ID', format: (d) => d.nodo_id ? d.nodo_id.substring(0, 8) + '...' : 'N/A' }
         ];
         break;
-    }
-    
-    if (datosTabla.length === 0) {
-      return (
-        <div style={{
-          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-          padding: '20px',
-          borderRadius: '12px',
-          border: '1px solid rgba(226, 232, 240, 0.8)',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
-          marginTop: '16px',
-          textAlign: 'center'
-        }}>
-          <h4 style={{
-            margin: '0 0 8px 0',
-            fontSize: '1.1rem',
-            fontWeight: '600',
-            color: '#1f2937'
-          }}>
-            📊 {title}
-          </h4>
-          <p style={{ color: '#6b7280', margin: 0 }}>
-            No hay datos de {tableType} para el período seleccionado
-          </p>
-        </div>
-      );
     }
     
     return (
@@ -1216,7 +957,7 @@ const getUserNodeInfo = async () => {
           alignItems: 'center',
           gap: '8px'
         }}>
-          📊 {title}
+          📊 {title} (Datos Individuales)
           <span style={{
             fontSize: '0.8rem',
             fontWeight: '500',
@@ -1225,7 +966,7 @@ const getUserNodeInfo = async () => {
             padding: '2px 8px',
             borderRadius: '12px'
           }}>
-            {datosTabla.length} períodos
+            {datosTabla.length} registros
           </span>
         </h4>
         
@@ -1273,7 +1014,7 @@ const getUserNodeInfo = async () => {
     );
   };
 
-  // Componente de filtros de tiempo - SIMPLIFICADO
+  // Componente de filtros de tiempo simplificado para datos individuales
   const TimeFiltersComponent = () => {
     const isMobile = window.innerWidth <= 768;
     const selectedFilter = timeFilters.find(f => f.key === timeFilter);
@@ -1303,7 +1044,7 @@ const getUserNodeInfo = async () => {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text'
             }}>
-              🔍 Filtros de Tiempo (Agrupación Dinámica)
+              🔍 Filtros de Tiempo (Datos Individuales)
             </h3>
             <p style={{
               margin: 0,
@@ -1311,7 +1052,7 @@ const getUserNodeInfo = async () => {
               color: '#6b7280',
               fontWeight: '500'
             }}>
-              {filteredData.length} registros → {Math.max(processedData.temperatura.length, processedData.humedad.length, processedData.peso.length)} períodos ({selectedFilter?.description || 'agrupación'})
+              {filteredData.length} registros individuales sin agrupación ({selectedFilter?.description || 'período personalizado'})
             </p>
           </div>
 
@@ -1462,7 +1203,7 @@ const getUserNodeInfo = async () => {
       background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
       minHeight: '100vh'
     }}>
-      {/* Header simplificado */}
+      {/* Header */}
       <div style={{
         display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
@@ -1488,43 +1229,44 @@ const getUserNodeInfo = async () => {
             lineHeight: '1.2',
             letterSpacing: '-0.025em'
           }}>
-            SmartBee Dashboard
+            SmartBee Dashboard (Datos Individuales)
           </h1>
         </div>
-        <button 
-          style={{
-            padding: isMobile ? '12px 20px' : '16px 24px',
-            background: isLoading || isLoadingData 
-              ? 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)'
-              : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '12px',
-            fontSize: isMobile ? '0.9rem' : '1rem',
-            fontWeight: '600',
-            cursor: isLoading || isLoadingData ? 'not-allowed' : 'pointer',
-            whiteSpace: 'nowrap',
-            boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
-            transition: 'all 0.3s ease',
-            transform: isLoading || isLoadingData ? 'scale(0.95)' : 'scale(1)',
-            letterSpacing: '0.025em'
-          }}
-          onClick={handleRefresh}
-          disabled={isLoading || isLoadingData}
-        >
-          {isLoadingData ? '⏳ Actualizando...' : '🔄 Actualizar Datos'}
-        </button>
-      {/* Nuevo botón de Alertas */}
-    <AlertasButton 
-      sensorData={sensorData}
-      filteredData={filteredData}
-    />
-  </div>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <button 
+            style={{
+              padding: isMobile ? '12px 20px' : '16px 24px',
+              background: isLoading || isLoadingData 
+                ? 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)'
+                : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: isMobile ? '0.9rem' : '1rem',
+              fontWeight: '600',
+              cursor: isLoading || isLoadingData ? 'not-allowed' : 'pointer',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
+              transition: 'all 0.3s ease',
+              transform: isLoading || isLoadingData ? 'scale(0.95)' : 'scale(1)',
+              letterSpacing: '0.025em'
+            }}
+            onClick={handleRefresh}
+            disabled={isLoading || isLoadingData}
+          >
+            {isLoadingData ? '⏳ Actualizando...' : '🔄 Actualizar Datos'}
+          </button>
+          <AlertasButton 
+            sensorData={sensorData}
+            filteredData={filteredData}
+          />
+        </div>
+      </div>
 
       {/* Componente de Filtros de Tiempo */}
       <TimeFiltersComponent />
       
-      {/* Grid de estadísticas mejorado */}
+      {/* Grid de estadísticas */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)',
@@ -1619,7 +1361,7 @@ const getUserNodeInfo = async () => {
         ))}
       </div>
 
-      {/* Gráficos con agrupación dinámica */}
+      {/* Gráficos con datos individuales */}
       {filteredData.length === 0 ? (
         <div style={{
           background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
@@ -1646,7 +1388,7 @@ const getUserNodeInfo = async () => {
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text'
           }}>
-            Sin Datos para el Período Seleccionado
+            Sin Datos Individuales para el Período Seleccionado
           </h3>
           <p style={{ 
             fontSize: isMobile ? '1rem' : '1.1rem', 
@@ -1654,15 +1396,7 @@ const getUserNodeInfo = async () => {
             margin: '0 0 16px 0',
             fontWeight: '500'
           }}>
-            No se encontraron datos de sensores para el filtro de tiempo aplicado.
-          </p>
-          <p style={{ 
-            fontSize: '0.9rem', 
-            color: '#9ca3af',
-            margin: 0,
-            fontWeight: '400'
-          }}>
-            Prueba seleccionar un período de tiempo diferente o verifica que haya datos disponibles.
+            No se encontraron registros individuales de sensores para el filtro aplicado.
           </p>
         </div>
       ) : (
@@ -1672,22 +1406,22 @@ const getUserNodeInfo = async () => {
           gap: '32px',
           marginBottom: '32px'
         }}>
-          {/* Gráfico de Temperatura */}
+          {/* Gráfico de Temperatura Individual */}
           <div>
-            {createSpecificChart(processedData.temperatura, 'temperatura', 'Temperatura Interna vs Externa', 'temp-chart')}
-            {createDataTable(processedData.temperatura, 'temperatura', 'Temperaturas por Período')}
+            {createIndividualChart(processedData.temperatura, 'temperatura', 'Temperatura Individual por Nodo', 'temp-chart')}
+            {createIndividualDataTable(processedData.temperatura, 'temperatura', 'Registros Individuales de Temperatura')}
           </div>
 
-          {/* Gráfico de Humedad */}
+          {/* Gráfico de Humedad Individual */}
           <div>
-            {createSpecificChart(processedData.humedad, 'humedad', 'Humedad Interna vs Externa', 'hum-chart')}
-            {createDataTable(processedData.humedad, 'humedad', 'Humedad por Período')}
+            {createIndividualChart(processedData.humedad, 'humedad', 'Humedad Individual por Nodo', 'hum-chart')}
+            {createIndividualDataTable(processedData.humedad, 'humedad', 'Registros Individuales de Humedad')}
           </div>
 
-          {/* Gráfico de Peso */}
+          {/* Gráfico de Peso Individual */}
           <div>
-            {createSpecificChart(processedData.peso, 'peso', 'Monitoreo de Peso (en KG)', 'peso-chart')}
-            {createDataTable(processedData.peso, 'peso', 'Peso por Período (en KG)')}
+            {createIndividualChart(processedData.peso, 'peso', 'Peso Individual de la Colmena (en KG)', 'peso-chart')}
+            {createIndividualDataTable(processedData.peso, 'peso', 'Registros Individuales de Peso (en KG)')}
           </div>
         </div>
       )}
