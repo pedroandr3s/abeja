@@ -268,7 +268,7 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
 
       <style >{`
         .navbar {
-          background: #ffffff;
+          background: #184036;
           border-bottom: 1px solid #e5e7eb;
           padding: 0.75rem 1rem;
           position: fixed;
@@ -316,14 +316,14 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
         .navbar-title h1 {
           font-size: 1.25rem;
           font-weight: 600;
-          color: #1f2937;
+          color: #ffffffff;
           margin: 0;
           margin-bottom: 0.125rem;
         }
 
         .navbar-subtitle {
           font-size: 0.875rem;
-          color: #6b7280;
+          color: #ffffffff;
           margin: 0;
         }
 
@@ -342,7 +342,7 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
         .time-display {
           font-size: 0.875rem;
           font-weight: 500;
-          color: #374151;
+          color: #ffffffff;
         }
 
         .connection-status {

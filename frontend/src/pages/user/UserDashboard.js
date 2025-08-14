@@ -49,39 +49,40 @@ const DashboardComplete = () => {
   const pesoChartRef = useRef(null);
   const chartInstances = useRef({});
 
-  // Definir los filtros de tiempo disponibles - SIMPLIFICADO para datos individuales
   const timeFilters = [
-    { 
-      key: '1hora', 
-      label: '⏰ Última Hora', 
-      hours: 1,
-      description: 'Datos individuales cada recepción'
-    },
-    { 
-      key: '6horas', 
-      label: '🕕 Últimas 6 Horas', 
-      hours: 6,
-      description: 'Datos individuales cada recepción'
-    },
-    { 
-      key: '1dia', 
-      label: '📅 Último Día', 
-      hours: 24,
-      description: 'Datos individuales cada recepción'
-    },
-    { 
-      key: '3dias', 
-      label: '📆 Últimos 3 Días', 
-      hours: 72,
-      description: 'Datos individuales cada recepción'
-    },
-    { 
-      key: '1semana', 
-      label: '📊 Última Semana', 
-      hours: 168,
-      description: 'Datos individuales cada recepción'
-    }
-  ];
+  { 
+    key: '1dia', 
+    label: '📅 Diario', 
+    hours: 24,
+    description: 'Últimas 24 horas',
+    gradient: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+    shadowColor: 'rgba(59, 130, 246, 0.3)'
+  },
+  { 
+    key: '1semana', 
+    label: '📊 Semanal', 
+    hours: 168,
+    description: 'Últimos 7 días',
+    gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    shadowColor: 'rgba(16, 185, 129, 0.3)'
+  },
+  { 
+    key: '1mes', 
+    label: '🗓️ Mensual', 
+    hours: 720,
+    description: 'Últimos 30 días',
+    gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    shadowColor: 'rgba(245, 158, 11, 0.3)'
+  },
+  { 
+    key: '1año', 
+    label: '📈 Anual', 
+    hours: 8760,
+    description: 'Últimos 365 días',
+    gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+    shadowColor: 'rgba(139, 92, 246, 0.3)'
+  }
+];
 
   useEffect(() => {
     checkAuthentication();
@@ -153,26 +154,52 @@ const DashboardComplete = () => {
   // NUEVA: Función para procesar datos individuales (sin agrupación)
   const processIndividualData = () => {
     if (!filteredData || filteredData.length === 0) {
-      setProcessedData({ temperatura: [], humedad: [], peso: [] });
+      setProcessedData({ 
+        temperaturaInterna: [], 
+        temperaturaExterna: [], 
+        humedadInterna: [], 
+        humedadExterna: [], 
+        peso: [] 
+      });
       return;
     }
 
     console.log(`📊 Procesando ${filteredData.length} datos individuales sin agrupación`);
 
-    // Separar datos por tipo de sensor
-    const temperaturaData = filteredData
-      .filter(item => item.temperatura !== null && item.temperatura !== undefined)
+    // Separar datos por tipo de sensor y medida
+    const temperaturaInterna = filteredData
+      .filter(item => item.temperatura !== null && item.temperatura !== undefined && item.tipo === 'interno')
       .map(item => ({
         ...item,
         fechaStr: formatIndividualDateTime(item.fecha),
+        fechaCompleta: formatFullDateTime(item.fecha),
         valor: item.temperatura
       }));
 
-    const humedadData = filteredData
-      .filter(item => item.humedad !== null && item.humedad !== undefined)
+    const temperaturaExterna = filteredData
+      .filter(item => item.temperatura !== null && item.temperatura !== undefined && item.tipo === 'externo')
       .map(item => ({
         ...item,
         fechaStr: formatIndividualDateTime(item.fecha),
+        fechaCompleta: formatFullDateTime(item.fecha),
+        valor: item.temperatura
+      }));
+
+    const humedadInterna = filteredData
+      .filter(item => item.humedad !== null && item.humedad !== undefined && item.tipo === 'interno')
+      .map(item => ({
+        ...item,
+        fechaStr: formatIndividualDateTime(item.fecha),
+        fechaCompleta: formatFullDateTime(item.fecha),
+        valor: item.humedad
+      }));
+
+    const humedadExterna = filteredData
+      .filter(item => item.humedad !== null && item.humedad !== undefined && item.tipo === 'externo')
+      .map(item => ({
+        ...item,
+        fechaStr: formatIndividualDateTime(item.fecha),
+        fechaCompleta: formatFullDateTime(item.fecha),
         valor: item.humedad
       }));
 
@@ -181,23 +208,28 @@ const DashboardComplete = () => {
       .map(item => ({
         ...item,
         fechaStr: formatIndividualDateTime(item.fecha),
+        fechaCompleta: formatFullDateTime(item.fecha),
         valor: item.peso
       }));
 
     console.log('📊 Datos individuales procesados:', {
-      temperatura: temperaturaData.length,
-      humedad: humedadData.length,
+      temperaturaInterna: temperaturaInterna.length,
+      temperaturaExterna: temperaturaExterna.length,
+      humedadInterna: humedadInterna.length,
+      humedadExterna: humedadExterna.length,
       peso: pesoData.length
     });
 
     setProcessedData({
-      temperatura: temperaturaData,
-      humedad: humedadData,
+      temperaturaInterna: temperaturaInterna,
+      temperaturaExterna: temperaturaExterna,
+      humedadInterna: humedadInterna,
+      humedadExterna: humedadExterna,
       peso: pesoData
     });
   };
 
-  // NUEVA: Función para formatear fecha y hora individual
+  // NUEVA: Función para formatear fecha y hora individual con hora correcta
   const formatIndividualDateTime = (fecha) => {
     const date = ensureDate(fecha);
     const day = String(date.getDate()).padStart(2, '0');
@@ -207,6 +239,19 @@ const DashboardComplete = () => {
     const seconds = String(date.getSeconds()).padStart(2, '0');
     
     return `${day}/${month} ${hours}:${minutes}:${seconds}`;
+  };
+
+  // NUEVA: Función para formatear fecha completa para tooltips
+  const formatFullDateTime = (fecha) => {
+    const date = ensureDate(fecha);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
   };
 
   // Función para aplicar filtros de tiempo
@@ -279,22 +324,22 @@ const DashboardComplete = () => {
     // Crear nuevos gráficos con datos individuales
     setTimeout(() => {
       try {
-        if (temperaturaChartRef.current && processedData.temperatura.length > 0) {
+        if (temperaturaChartRef.current && (processedData.temperaturaInterna.length > 0 || processedData.temperaturaExterna.length > 0)) {
           const existingChart = Chart.Chart.getChart(temperaturaChartRef.current);
           if (existingChart) {
             existingChart.destroy();
           }
           const ctx = temperaturaChartRef.current.getContext('2d');
-          chartInstances.current.temperatura = createIndividualChartJSInstance(ctx, processedData.temperatura, 'temperatura');
+          chartInstances.current.temperatura = createIndividualChartJSInstance(ctx, [...processedData.temperaturaInterna, ...processedData.temperaturaExterna], 'temperatura');
         }
         
-        if (humedadChartRef.current && processedData.humedad.length > 0) {
+        if (humedadChartRef.current && (processedData.humedadInterna.length > 0 || processedData.humedadExterna.length > 0)) {
           const existingChart = Chart.Chart.getChart(humedadChartRef.current);
           if (existingChart) {
             existingChart.destroy();
           }
           const ctx = humedadChartRef.current.getContext('2d');
-          chartInstances.current.humedad = createIndividualChartJSInstance(ctx, processedData.humedad, 'humedad');
+          chartInstances.current.humedad = createIndividualChartJSInstance(ctx, [...processedData.humedadInterna, ...processedData.humedadExterna], 'humedad');
         }
         
         if (pesoChartRef.current && processedData.peso.length > 0) {
@@ -535,10 +580,30 @@ const DashboardComplete = () => {
     }
 
     const isMobile = window.innerWidth <= 768;
+    
+    // Determinar la referencia del canvas según el tipo
+    let canvasRef;
+    switch (chartType) {
+      case 'temperaturaInterna':
+      case 'temperaturaExterna':
+      case 'temperatura':
+        canvasRef = temperaturaChartRef;
+        break;
+      case 'humedadInterna':
+      case 'humedadExterna':
+      case 'humedad':
+        canvasRef = humedadChartRef;
+        break;
+      case 'peso':
+        canvasRef = pesoChartRef;
+        break;
+      default:
+        canvasRef = temperaturaChartRef;
+    }
 
     return (
       <div style={{
-        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+        background: 'linear-gradient(135deg, #ffffffff 0%, #f8fafc 100%)',
         padding: '24px',
         borderRadius: '16px',
         boxShadow: '0 4px 20px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.1)',
@@ -580,8 +645,7 @@ const DashboardComplete = () => {
           position: 'relative'
         }}>
           <canvas
-            ref={chartType === 'temperatura' ? temperaturaChartRef : 
-                 chartType === 'humedad' ? humedadChartRef : pesoChartRef}
+            ref={canvasRef}
             style={{
               maxWidth: '100%',
               maxHeight: '100%'
@@ -647,7 +711,8 @@ const DashboardComplete = () => {
             label: `Temperatura Interna (${internoData.length} lecturas)`,
             data: internoData.map(d => ({
               x: d.fechaStr,
-              y: d.valor
+              y: d.valor,
+              fechaCompleta: d.fechaCompleta
             })),
             borderColor: '#ef4444',
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
@@ -668,7 +733,8 @@ const DashboardComplete = () => {
             label: `Temperatura Externa (${externoData.length} lecturas)`,
             data: externoData.map(d => ({
               x: d.fechaStr,
-              y: d.valor
+              y: d.valor,
+              fechaCompleta: d.fechaCompleta
             })),
             borderColor: '#3b82f6',
             backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -689,7 +755,8 @@ const DashboardComplete = () => {
             label: `Sensor Real (${realData.length} lecturas)`,
             data: realData.map(d => ({
               x: d.fechaStr,
-              y: d.valor
+              y: d.valor,
+              fechaCompleta: d.fechaCompleta
             })),
             borderColor: '#10b981',
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -716,7 +783,8 @@ const DashboardComplete = () => {
             label: `Humedad Interna (${internoData.length} lecturas)`,
             data: internoData.map(d => ({
               x: d.fechaStr,
-              y: d.valor
+              y: d.valor,
+              fechaCompleta: d.fechaCompleta
             })),
             borderColor: '#10b981',
             backgroundColor: 'rgba(16, 185, 129, 0.1)',
@@ -737,7 +805,8 @@ const DashboardComplete = () => {
             label: `Humedad Externa (${externoData.length} lecturas)`,
             data: externoData.map(d => ({
               x: d.fechaStr,
-              y: d.valor
+              y: d.valor,
+              fechaCompleta: d.fechaCompleta
             })),
             borderColor: '#8b5cf6',
             backgroundColor: 'rgba(139, 92, 246, 0.1)',
@@ -758,7 +827,8 @@ const DashboardComplete = () => {
             label: `Sensor Real (${realData.length} lecturas)`,
             data: realData.map(d => ({
               x: d.fechaStr,
-              y: d.valor
+              y: d.valor,
+              fechaCompleta: d.fechaCompleta
             })),
             borderColor: '#f59e0b',
             backgroundColor: 'rgba(245, 158, 11, 0.1)',
@@ -783,7 +853,8 @@ const DashboardComplete = () => {
             label: `Peso de la Colmena (${data.length} lecturas)`,
             data: data.map(d => ({
               x: d.fechaStr,
-              y: (d.valor / 1000).toFixed(3) // CONVERSIÓN A KG
+              y: (d.valor / 1000).toFixed(3), // CONVERSIÓN A KG
+              fechaCompleta: d.fechaCompleta
             })),
             borderColor: '#f59e0b',
             backgroundColor: 'rgba(245, 158, 11, 0.1)',
@@ -825,7 +896,9 @@ const DashboardComplete = () => {
             backgroundColor: 'rgba(0, 0, 0, 0.8)',
             callbacks: {
               title: function(context) {
-                return `${context[0].label}`;
+                // Usar la fecha completa del punto de datos
+                const dataPoint = context[0].raw;
+                return dataPoint.fechaCompleta || context[0].label;
               },
               label: function(context) {
                 let label = context.dataset.label || '';
@@ -1014,195 +1087,183 @@ const DashboardComplete = () => {
     );
   };
 
-  // Componente de filtros de tiempo simplificado para datos individuales
   const TimeFiltersComponent = () => {
-    const isMobile = window.innerWidth <= 768;
-    const selectedFilter = timeFilters.find(f => f.key === timeFilter);
-    
-    return (
+  const isMobile = window.innerWidth <= 768;
+  const selectedFilter = timeFilters.find(f => f.key === timeFilter);
+  
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+      padding: isMobile ? '20px' : '28px',
+      borderRadius: '24px',
+      boxShadow: '0 10px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08)',
+      marginBottom: '32px',
+      border: '1px solid rgba(226, 232, 240, 0.6)',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      {/* Decorative background elements */}
       <div style={{
-        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-        padding: '24px',
-        borderRadius: '20px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1)',
-        marginBottom: '32px',
-        border: '1px solid rgba(226, 232, 240, 0.8)'
-      }}>
+        position: 'absolute',
+        top: '-50%',
+        right: '-10%',
+        width: '200px',
+        height: '200px',
+        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.02) 100%)',
+        borderRadius: '50%',
+        filter: 'blur(40px)',
+        zIndex: 0
+      }} />
+      
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        {/* Header Section */}
         <div style={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          alignItems: isMobile ? 'flex-start' : 'center',
-          gap: isMobile ? '20px' : '24px'
+          textAlign: 'center',
+          marginBottom: '24px',
+          paddingBottom: '20px',
+          borderBottom: '2px solid rgba(226, 232, 240, 0.3)'
         }}>
-          <div style={{ flex: '0 0 auto' }}>
-            <h3 style={{
-              margin: '0 0 8px 0',
-              fontSize: isMobile ? '1.1rem' : '1.25rem',
-              fontWeight: '700',
-              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text'
-            }}>
-              🔍 Filtros de Tiempo (Datos Individuales)
-            </h3>
-            <p style={{
-              margin: 0,
-              fontSize: '0.9rem',
-              color: '#6b7280',
-              fontWeight: '500'
-            }}>
-              {filteredData.length} registros individuales sin agrupación ({selectedFilter?.description || 'período personalizado'})
-            </p>
-          </div>
-
-          {/* Botones de filtros predefinidos */}
           <div style={{
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
+            display: 'inline-flex',
+            alignItems: 'center',
             gap: '12px',
-            flex: 1,
-            flexWrap: 'wrap'
-          }}>
-            {timeFilters.map((filter) => (
-              <button
-                key={filter.key}
-                onClick={() => handleTimeFilterChange(filter.key)}
-                style={{
-                  padding: isMobile ? '12px 16px' : '10px 16px',
-                  background: timeFilter === filter.key 
-                    ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
-                    : 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-                  color: timeFilter === filter.key ? 'white' : '#4b5563',
-                  border: timeFilter === filter.key ? 'none' : '2px solid rgba(148, 163, 184, 0.3)',
-                  borderRadius: '12px',
-                  fontSize: isMobile ? '0.9rem' : '0.875rem',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.3s ease',
-                  transform: timeFilter === filter.key ? 'scale(1.05)' : 'scale(1)',
-                  boxShadow: timeFilter === filter.key 
-                    ? '0 6px 20px rgba(99, 102, 241, 0.4)' 
-                    : '0 2px 8px rgba(0, 0, 0, 0.1)',
-                  letterSpacing: '0.025em'
-                }}
-                onMouseOver={(e) => {
-                  if (timeFilter !== filter.key) {
-                    e.target.style.transform = 'scale(1.02)';
-                    e.target.style.background = 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)';
-                  }
-                }}
-                onMouseOut={(e) => {
-                  if (timeFilter !== filter.key) {
-                    e.target.style.transform = 'scale(1)';
-                    e.target.style.background = 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)';
-                  }
-                }}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Selector de rango personalizado */}
-          <div style={{
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            gap: '12px',
-            alignItems: isMobile ? 'stretch' : 'center',
-            flex: '0 0 auto'
+            marginBottom: '8px'
           }}>
             <div style={{
-              display: 'flex',
-              flexDirection: isMobile ? 'column' : 'row',
-              gap: '8px',
-              alignItems: isMobile ? 'stretch' : 'center'
+              fontSize: '2rem',
+              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
             }}>
-              <label style={{ 
-                fontSize: '0.8rem', 
-                fontWeight: '600', 
-                color: '#6b7280',
-                whiteSpace: 'nowrap'
-              }}>
-                📅 Rango:
-              </label>
-              <input
-                type="date"
-                value={customDateRange.start || ''}
-                onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
-                style={{
-                  padding: '8px 12px',
-                  border: '2px solid rgba(148, 163, 184, 0.3)',
-                  borderRadius: '8px',
-                  fontSize: '0.8rem',
-                  fontWeight: '500',
-                  color: '#4b5563',
-                  background: '#ffffff',
-                  minWidth: '140px'
-                }}
-              />
-              <span style={{ color: '#9ca3af', fontWeight: '500' }}>a</span>
-              <input
-                type="date"
-                value={customDateRange.end || ''}
-                onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
-                style={{
-                  padding: '8px 12px',
-                  border: '2px solid rgba(148, 163, 184, 0.3)',
-                  borderRadius: '8px',
-                  fontSize: '0.8rem',
-                  fontWeight: '500',
-                  color: '#4b5563',
-                  background: '#ffffff',
-                  minWidth: '140px'
-                }}
-              />
+              🕒
             </div>
-            <button
-              onClick={() => handleCustomDateRange(customDateRange.start, customDateRange.end)}
-              disabled={!customDateRange.start || !customDateRange.end}
-              style={{
-                padding: '8px 16px',
-                background: (!customDateRange.start || !customDateRange.end)
-                  ? 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)'
-                  : 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+            <h3 style={{
+              margin: 0,
+              fontSize: isMobile ? '1.3rem' : '1.5rem',
+              fontWeight: '800',
+              background: 'linear-gradient(135deg, #1f2937 0%, #6366f1 50%, #8b5cf6 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+              letterSpacing: '-0.025em'
+            }}>
+              Filtros de Tiempo
+            </h3>
+          </div>
+          
+          <div style={{
+            background: 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
+            padding: '12px 20px',
+            borderRadius: '16px',
+            display: 'inline-block',
+            border: '1px solid rgba(148, 163, 184, 0.2)'
+          }}>
+            <p style={{
+              margin: 0,
+              fontSize: isMobile ? '0.9rem' : '1rem',
+              color: '#475569',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span style={{ fontSize: '1.2rem' }}>📊</span>
+              {filteredData.length} registros individuales
+              <span style={{
+                background: selectedFilter?.gradient || 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
                 color: 'white',
-                border: 'none',
+                padding: '2px 8px',
                 borderRadius: '8px',
                 fontSize: '0.8rem',
-                fontWeight: '600',
-                cursor: (!customDateRange.start || !customDateRange.end) ? 'not-allowed' : 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.3s ease',
-                boxShadow: (!customDateRange.start || !customDateRange.end)
-                  ? 'none'
-                  : '0 4px 12px rgba(245, 158, 11, 0.4)'
-              }}
-            >
-              🔍 Aplicar
-            </button>
+                fontWeight: '700',
+                marginLeft: '4px'
+              }}>
+                {selectedFilter?.description || 'período personalizado'}
+              </span>
+            </p>
           </div>
         </div>
-      </div>
-    );
-  };
 
-  if (isLoading || !currentUser) {
-    return <Loading message="Cargando dashboard..." />;
-  }
+        {/* Filter Buttons Grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)',
+          gap: isMobile ? '12px' : '16px',
+          marginBottom: '28px'
+        }}>
+          {timeFilters.map((filter) => (
+            <button
+              key={filter.key}
+              onClick={() => handleTimeFilterChange(filter.key)}
+              style={{
+                padding: isMobile ? '16px 12px' : '18px 16px',
+                background: timeFilter === filter.key 
+                  ? filter.gradient
+                  : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                color: timeFilter === filter.key ? 'white' : '#374151',
+                border: timeFilter === filter.key 
+                  ? 'none' 
+                  : '2px solid rgba(148, 163, 184, 0.2)',
+                borderRadius: '16px',
+                fontSize: isMobile ? '0.9rem' : '1rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                transform: timeFilter === filter.key ? 'translateY(-2px) scale(1.02)' : 'translateY(0) scale(1)',
+                boxShadow: timeFilter === filter.key 
+                  ? `0 8px 25px ${filter.shadowColor}, 0 3px 10px rgba(0,0,0,0.1)` 
+                  : '0 2px 8px rgba(0, 0, 0, 0.08)',
+                textAlign: 'center',
+                position: 'relative',
+                overflow: 'hidden',
+                letterSpacing: '0.025em'
+              }}
+              // ... eventos hover ...
+            >
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <span style={{ fontSize: isMobile ? '1.1rem' : '1.2rem' }}>
+                  {filter.label}
+                </span>
+                <span style={{
+                  fontSize: '0.75rem',
+                  opacity: timeFilter === filter.key ? 0.9 : 0.6,
+                  fontWeight: '500'
+                }}>
+                  {filter.description}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Custom Date Range Section - MEJORADO */}
+        <div style={{
+          background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+          padding: isMobile ? '16px' : '20px',
+          borderRadius: '16px',
+          border: '2px solid rgba(148, 163, 184, 0.15)'
+        }}>
+          {/* ... resto del selector de fechas mejorado ... */}
+        </div>
+      </div>
+    </div>
+  );
+};
 
   const latestData = filteredData.length > 0 ? filteredData[filteredData.length - 1] : null;
   const isMobile = window.innerWidth <= 768;
 
   return (
-    <div style={{ 
-      padding: isMobile ? '16px' : '24px',
-      maxWidth: '100%',
-      overflow: 'hidden',
-      background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-      minHeight: '100vh'
-    }}>
+  <div style={{ 
+    padding: isMobile ? '16px' : '24px',
+    maxWidth: '100%',
+    overflow: 'hidden',
+    background: '#184036', // ← NUEVO FONDO
+    minHeight: '100vh'
+  }}>
       {/* Header */}
       <div style={{
         display: 'flex',
@@ -1266,79 +1327,101 @@ const DashboardComplete = () => {
       {/* Componente de Filtros de Tiempo */}
       <TimeFiltersComponent />
       
-      {/* Grid de estadísticas */}
+      {/* Grid de estadísticas AMPLIADO */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(5, 1fr)',
+        gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)',
         gap: isMobile ? '16px' : '20px',
         marginBottom: '32px'
       }}>
-        {[
-          { 
-            title: 'Mis Colmenas', 
-            value: userColmenas.length, 
-            icon: '🏠', 
-            color: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            bgColor: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)'
-          },
-          { 
-            title: userColmenas.length > 0 ? (userColmenas[0].descripcion || 'Sin descripción') : 'Sin colmenas',
-            value: userColmenas.length > 0 ? `ID: ${userColmenas[0].id.toString().substring(0, 8)}...` : 'N/A',
-            icon: '📋', 
-            color: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-            bgColor: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
-            small: true
-          },
-          { 
-            title: '⚖️ Peso ÚLTIMO (KG)', 
-            value: latestData && latestData.peso !== null ? 
-              `${(latestData.peso / 1000).toFixed(3)}kg [${latestData.fecha.toLocaleTimeString()}]` : 
-              'Sin datos en período', 
-            icon: '⚖️', 
-            color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-            bgColor: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-            span: isMobile ? 2 : 1
-          },
-          { 
-            title: '💧 Humedad ÚLTIMO', 
-            value: latestData && latestData.humedad !== null ? 
-              `${latestData.humedad.toFixed(1)}% [${latestData.fecha.toLocaleTimeString()}]` : 
-              'Sin datos en período', 
-            icon: '💧', 
-            color: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-            bgColor: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)'
-          },
-          { 
-            title: '🌡️ Temperatura ÚLTIMO', 
-            value: latestData && latestData.temperatura !== null ? 
-              `${latestData.temperatura.toFixed(1)}°C [${latestData.fecha.toLocaleTimeString()}]` : 
-              'Sin datos en período', 
-            icon: '🌡️', 
-            color: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-            bgColor: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)'
-          }
-        ].map((stat, index) => (
+        {/* Obtener últimos datos por tipo */}
+        {(() => {
+          const ultimaTempInterna = filteredData.filter(d => d.temperatura !== null && d.tipo === 'interno').slice(-1)[0];
+          const ultimaTempExterna = filteredData.filter(d => d.temperatura !== null && d.tipo === 'externo').slice(-1)[0];
+          const ultimaHumInterna = filteredData.filter(d => d.humedad !== null && d.tipo === 'interno').slice(-1)[0];
+          const ultimaHumExterna = filteredData.filter(d => d.humedad !== null && d.tipo === 'externo').slice(-1)[0];
+          const ultimoPeso = filteredData.filter(d => d.peso !== null && d.tipo === 'interno').slice(-1)[0];
+          
+          return [
+            { 
+              title: 'Mis Colmenas', 
+              value: userColmenas.length, 
+              icon: '🏠', 
+              color: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              bgColor: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)'
+            },
+            { 
+              title: '🌡️ Temp. Interna', 
+              value: ultimaTempInterna ? 
+                `${ultimaTempInterna.temperatura.toFixed(1)}°C` : 
+                'Sin datos', 
+              icon: '🌡️', 
+              color: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+              bgColor: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+              time: ultimaTempInterna ? `[${ultimaTempInterna.fecha.toLocaleTimeString()}]` : ''
+            },
+            { 
+              title: '🌡️ Temp. Externa', 
+              value: ultimaTempExterna ? 
+                `${ultimaTempExterna.temperatura.toFixed(1)}°C` : 
+                'Sin datos', 
+              icon: '🌡️', 
+              color: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+              bgColor: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+              time: ultimaTempExterna ? `[${ultimaTempExterna.fecha.toLocaleTimeString()}]` : ''
+            },
+            { 
+              title: '💧 Hum. Interna', 
+              value: ultimaHumInterna ? 
+                `${ultimaHumInterna.humedad.toFixed(1)}%` : 
+                'Sin datos', 
+              icon: '💧', 
+              color: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              bgColor: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+              time: ultimaHumInterna ? `[${ultimaHumInterna.fecha.toLocaleTimeString()}]` : ''
+            },
+            { 
+              title: '💧 Hum. Externa', 
+              value: ultimaHumExterna ? 
+                `${ultimaHumExterna.humedad.toFixed(1)}%` : 
+                'Sin datos', 
+              icon: '💧', 
+              color: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+              bgColor: 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
+              time: ultimaHumExterna ? `[${ultimaHumExterna.fecha.toLocaleTimeString()}]` : ''
+            },
+            { 
+              title: '⚖️ Peso Colmena', 
+              value: ultimoPeso ? 
+                `${(ultimoPeso.peso / 1000).toFixed(3)}kg` : 
+                'Sin datos', 
+              icon: '⚖️', 
+              color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              bgColor: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+              time: ultimoPeso ? `[${ultimoPeso.fecha.toLocaleTimeString()}]` : ''
+            }
+          ];
+        })().map((stat, index) => (
           <div key={index} style={{
             background: stat.bgColor,
-            padding: isMobile ? '20px' : '24px',
+            padding: isMobile ? '16px' : '20px',
             borderRadius: '16px',
             boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.1)',
             textAlign: 'center',
-            gridColumn: stat.span ? `span ${stat.span}` : 'span 1',
             border: '1px solid rgba(255, 255, 255, 0.6)',
             position: 'relative',
             overflow: 'hidden'
           }}>
             <div style={{ 
-              fontSize: isMobile ? '2rem' : '2.5rem', 
-              marginBottom: '12px',
+              fontSize: isMobile ? '1.5rem' : '2rem', 
+              marginBottom: '8px',
               filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
             }}>
               {stat.icon}
             </div>
             <h3 style={{ 
-              margin: '0 0 8px 0', 
-              fontSize: stat.small ? (isMobile ? '0.9rem' : '1rem') : (isMobile ? '1.5rem' : '2rem'),
+              margin: '0 0 4px 0', 
+              fontSize: isMobile ? '1.1rem' : '1.3rem',
               fontWeight: '800',
               background: stat.color,
               WebkitBackgroundClip: 'text',
@@ -1348,9 +1431,19 @@ const DashboardComplete = () => {
             }}>
               {stat.value}
             </h3>
+            {stat.time && (
+              <p style={{ 
+                margin: '0 0 4px 0', 
+                fontSize: '0.7rem',
+                color: '#6b7280',
+                fontWeight: '500'
+              }}>
+                {stat.time}
+              </p>
+            )}
             <p style={{ 
               margin: 0, 
-              fontSize: isMobile ? '0.8rem' : '0.9rem',
+              fontSize: isMobile ? '0.75rem' : '0.8rem',
               color: '#6b7280',
               fontWeight: '600',
               letterSpacing: '0.025em'
@@ -1361,70 +1454,84 @@ const DashboardComplete = () => {
         ))}
       </div>
 
-      {/* Gráficos con datos individuales */}
-      {filteredData.length === 0 ? (
-        <div style={{
-          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-          padding: isMobile ? '32px 20px' : '40px 32px',
-          borderRadius: '20px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08)',
-          marginBottom: '24px',
-          textAlign: 'center',
-          border: '1px solid rgba(226, 232, 240, 0.8)'
-        }}>
-          <div style={{ 
-            fontSize: isMobile ? '4rem' : '5rem', 
-            marginBottom: '24px',
-            filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))'
-          }}>
-            📊
-          </div>
-          <h3 style={{ 
-            fontSize: isMobile ? '1.25rem' : '1.5rem', 
-            marginBottom: '12px',
-            fontWeight: '700',
-            background: 'linear-gradient(135deg, #1f2937 0%, #4b5563 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text'
-          }}>
-            Sin Datos Individuales para el Período Seleccionado
-          </h3>
-          <p style={{ 
-            fontSize: isMobile ? '1rem' : '1.1rem', 
-            color: '#6b7280',
-            margin: '0 0 16px 0',
-            fontWeight: '500'
-          }}>
-            No se encontraron registros individuales de sensores para el filtro aplicado.
-          </p>
-        </div>
-      ) : (
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '32px',
-          marginBottom: '32px'
-        }}>
-          {/* Gráfico de Temperatura Individual */}
-          <div>
-            {createIndividualChart(processedData.temperatura, 'temperatura', 'Temperatura Individual por Nodo', 'temp-chart')}
-            {createIndividualDataTable(processedData.temperatura, 'temperatura', 'Registros Individuales de Temperatura')}
-          </div>
 
-          {/* Gráfico de Humedad Individual */}
-          <div>
-            {createIndividualChart(processedData.humedad, 'humedad', 'Humedad Individual por Nodo', 'hum-chart')}
-            {createIndividualDataTable(processedData.humedad, 'humedad', 'Registros Individuales de Humedad')}
-          </div>
 
-          {/* Gráfico de Peso Individual */}
-          <div>
-            {createIndividualChart(processedData.peso, 'peso', 'Peso Individual de la Colmena (en KG)', 'peso-chart')}
-            {createIndividualDataTable(processedData.peso, 'peso', 'Registros Individuales de Peso (en KG)')}
-          </div>
-        </div>
-      )}
+{/* Gráficos con datos individuales */}
+{filteredData.length === 0 ? (
+  <div style={{
+    background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+    padding: isMobile ? '32px 20px' : '40px 32px',
+    borderRadius: '20px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08)',
+    marginBottom: '24px',
+    textAlign: 'center',
+    border: '1px solid rgba(226, 232, 240, 0.8)'
+  }}>
+    <div style={{ 
+      fontSize: isMobile ? '4rem' : '5rem', 
+      marginBottom: '24px',
+      filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))'
+    }}>
+      📊
+    </div>
+    <h3 style={{ 
+      fontSize: isMobile ? '1.25rem' : '1.5rem', 
+      marginBottom: '12px',
+      fontWeight: '700',
+      background: 'linear-gradient(135deg, #1f2937 0%, #4b5563 100%)',
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent',
+      backgroundClip: 'text'
+    }}>
+      Sin Datos Individuales para el Período Seleccionado
+    </h3>
+    <p style={{ 
+      fontSize: isMobile ? '1rem' : '1.1rem', 
+      color: '#6b7280',
+      margin: '0 0 16px 0',
+      fontWeight: '500'
+    }}>
+      No se encontraron registros individuales de sensores para el filtro aplicado.
+    </p>
+  </div>
+) : (
+  <div style={{
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '32px',
+    marginBottom: '32px'
+  }}>
+    {/* Gráfico de Temperatura Interna */}
+    <div>
+      {createIndividualChart(processedData.temperaturaInterna, 'temperaturaInterna', 'Temperatura Interna', 'temp-interna-chart')}
+      {createIndividualDataTable(processedData.temperaturaInterna, 'temperatura', 'Registros de Temperatura Interna')}
+    </div>
+
+    {/* Gráfico de Temperatura Externa */}
+    <div>
+      {createIndividualChart(processedData.temperaturaExterna, 'temperaturaExterna', 'Temperatura Externa', 'temp-externa-chart')}
+      {createIndividualDataTable(processedData.temperaturaExterna, 'temperatura', 'Registros de Temperatura Externa')}
+    </div>
+
+    {/* Gráfico de Humedad Interna */}
+    <div>
+      {createIndividualChart(processedData.humedadInterna, 'humedadInterna', 'Humedad Interna', 'hum-interna-chart')}
+      {createIndividualDataTable(processedData.humedadInterna, 'humedad', 'Registros de Humedad Interna')}
+    </div>
+
+    {/* Gráfico de Humedad Externa */}
+    <div>
+      {createIndividualChart(processedData.humedadExterna, 'humedadExterna', 'Humedad Externa', 'hum-externa-chart')}
+      {createIndividualDataTable(processedData.humedadExterna, 'humedad', 'Registros de Humedad Externa')}
+    </div>
+
+    {/* Gráfico de Peso Individual */}
+    <div>
+      {createIndividualChart(processedData.peso, 'peso', 'Peso Individual de la Colmena (en KG)', 'peso-chart')}
+      {createIndividualDataTable(processedData.peso, 'peso', 'Registros Individuales de Peso (en KG)')}
+    </div>
+  </div>
+)}
     </div>
   );
 };

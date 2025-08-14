@@ -94,7 +94,7 @@ const Sidebar = ({ currentUser, roleConfig, theme, isDarkMode, isMobileOpen, onM
   // Estilos dinámicos basados en el tema
   const sidebarStyles = {
     background: theme?.background || 'linear-gradient(180deg, #1f2937 0%, #111827 100%)',
-    color: theme?.textPrimary || '#ffffff'
+    color: theme?.textPrimary || '#184036'
   };
 
   const cardStyles = {

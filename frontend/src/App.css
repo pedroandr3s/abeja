@@ -20,7 +20,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
   color: #374151;
-  background-color: #f8fafc;
+  background-color: #184036;
 }
 
 /* ===== LAYOUTS RESPONSIVOS ===== */
@@ -54,7 +54,7 @@ body {
   left: 0;
   right: 0;
   z-index: 50;
-  background: #ffffff;
+  background: #184036;
   border-bottom: 1px solid #e5e7eb;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   padding: 0.75rem 1rem;
