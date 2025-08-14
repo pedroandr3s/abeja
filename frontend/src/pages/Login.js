@@ -14,7 +14,9 @@ const ROLE_CONFIG = {
   API: {
     name: 'Apicultor',
     defaultRoute: '/user-dashboard',
-    description: 'Gestión de colmenas propias'  }
+    description: 'Gestión de colmenas propias',
+    features: ['Gestión de mis colmenas', 'Reportes personales', 'Seguimiento de producción', 'Historial de revisiones']
+  }
 };
 
 const Login = ({ onLoginSuccess }) => {
@@ -296,7 +298,7 @@ const Login = ({ onLoginSuccess }) => {
               <div className="bg-blue-50 rounded-lg p-4 mb-6">
                 <h4 className="font-medium text-blue-900 mb-3">Funcionalidades disponibles:</h4>
                 <ul className="space-y-2">
-                  {roleConfig.features.map((feature, index) => (
+                  {(roleConfig.features || []).map((feature, index) => (
                     <li key={index} className="flex items-center text-sm text-blue-800">
                       <div className="w-2 h-2 bg-blue-400 rounded-full mr-3"></div>
                       {feature}

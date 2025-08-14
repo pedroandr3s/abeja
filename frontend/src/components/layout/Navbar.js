@@ -266,7 +266,7 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
         </div>
       )}
 
-      <style jsx>{`
+      <style >{`
         .navbar {
           background: #ffffff;
           border-bottom: 1px solid #e5e7eb;

@@ -256,7 +256,7 @@ const Sidebar = ({ currentUser, roleConfig, theme, isDarkMode, isMobileOpen, onM
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         .sidebar {
           width: 280px;
           height: 100vh;
