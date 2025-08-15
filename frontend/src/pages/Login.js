@@ -14,7 +14,9 @@ const ROLE_CONFIG = {
   API: {
     name: 'Apicultor',
     defaultRoute: '/user-dashboard',
-    description: 'Gestión de colmenas propias'  }
+    description: 'Gestión de colmenas propias',
+    features: ['Mis colmenas', 'Dashboard personal', 'Reportes de mis colmenas', 'Gestión de perfil'] // ✅ AGREGAR ESTA LÍNEA
+  }
 };
 
 const Login = ({ onLoginSuccess }) => {
