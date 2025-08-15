@@ -9,7 +9,7 @@ import Sidebar from './components/layout/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Usuarios from './pages/Usuarios';
 import Colmenas from './pages/Colmenas';
-import Revisiones from './pages/Revisiones';
+import Revisiones from './pages/Colmenas';
 
 // Importar páginas de usuario/apicultor
 import UserDashboard from './pages/user/UserDashboard';

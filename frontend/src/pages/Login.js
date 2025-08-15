@@ -14,9 +14,7 @@ const ROLE_CONFIG = {
   API: {
     name: 'Apicultor',
     defaultRoute: '/user-dashboard',
-    description: 'Gestión de colmenas propias',
-    features: ['Gestión de mis colmenas', 'Reportes personales', 'Seguimiento de producción', 'Historial de revisiones']
-  }
+    description: 'Gestión de colmenas propias'  }
 };
 
 const Login = ({ onLoginSuccess }) => {
@@ -51,7 +49,7 @@ const Login = ({ onLoginSuccess }) => {
         // Intentar conectar directamente si no hay ApiContext
         const baseUrl = process.env.NODE_ENV === 'development' 
           ? 'http://localhost:8080' 
-          : 'https://backend-production-eb26.up.railway.app';
+          : 'https://backend-production-20f9.up.railway.app/api';
           
         const response = await fetch(`${baseUrl}/api/health`);
         
@@ -123,7 +121,7 @@ const Login = ({ onLoginSuccess }) => {
         console.log('📡 Usando fetch directo para login');
         const baseUrl = process.env.NODE_ENV === 'development' 
           ? 'http://localhost:8080' 
-          : 'https://backend-production-eb26.up.railway.app';
+          : 'https://backend-production-20f9.up.railway.app/api';
           
         const response = await fetch(`${baseUrl}/api/usuarios/login`, {
           method: 'POST',
@@ -298,7 +296,7 @@ const Login = ({ onLoginSuccess }) => {
               <div className="bg-blue-50 rounded-lg p-4 mb-6">
                 <h4 className="font-medium text-blue-900 mb-3">Funcionalidades disponibles:</h4>
                 <ul className="space-y-2">
-                  {(roleConfig.features || []).map((feature, index) => (
+                  {roleConfig.features.map((feature, index) => (
                     <li key={index} className="flex items-center text-sm text-blue-800">
                       <div className="w-2 h-2 bg-blue-400 rounded-full mr-3"></div>
                       {feature}

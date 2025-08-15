@@ -24,8 +24,7 @@ const getBaseURL = () => {
   }
   
   // ✅ Railway funcionando - URL corregida
-  return 'https://backend-production-eb26.up.railway.app/api';
-};
+return 'https://backend-production-20f9.up.railway.app/api';};
 
 // Configuración de axios para conectar al backend
 const api = axios.create({
