@@ -41,7 +41,7 @@ const DashboardComplete = () => {
   });
   const [showRawData, setShowRawData] = useState(true); // NUEVO: Controla si mostrar datos individuales
 
-  const API_BASE = 'https://backend-production-eb26.up.railway.app/api';
+  const API_BASE = 'backend-production-20f9.up.railway.app';
 
   // Referencias para los gráficos de Chart.js
   const temperaturaChartRef = useRef(null);
