@@ -24,12 +24,13 @@ const getBaseURL = () => {
   }
   
   // ✅ Railway funcionando - URL corregida
-return 'https://backend-production-20f9.up.railway.app/api';};
+  return 'https://backend-production-20f9.up.railway.app/api';
+};
 
 // Configuración de axios para conectar al backend
 const api = axios.create({
   baseURL: getBaseURL(),
-  timeout: 15000,
+  timeout: 30000, // ✅ Aumentado timeout a 30 segundos
   headers: {
     'Content-Type': 'application/json',
   },
@@ -175,16 +176,26 @@ export const ApiProvider = ({ children }) => {
     }
   };
 
-  // Métodos específicos para cada entidad basados en el esquema de BD
+  // =============================================
+  // MÉTODOS PARA USUARIOS (INCLUYE LOGIN)
+  // =============================================
   const usuarios = {
     getAll: () => apiRequest('get', '/usuarios'),
     getById: (id) => apiRequest('get', `/usuarios/${id}`),
     create: (data) => apiRequest('post', '/usuarios', data),
     update: (id, data) => apiRequest('put', `/usuarios/${id}`, data),
     delete: (id) => apiRequest('delete', `/usuarios/${id}`),
-    // ✅ Método de login corregido
+    
+    // ✅ LOGIN CORREGIDO - Ahora en /usuarios/login
     login: async (credentials) => {
       try {
+        console.log('🔐 Intentando login con:', { 
+          email: credentials.email ? 'presente' : 'ausente',
+          nombre: credentials.nombre ? 'presente' : 'ausente', 
+          apellido: credentials.apellido ? 'presente' : 'ausente',
+          password: credentials.password ? 'presente' : 'ausente'
+        });
+        
         const response = await api.post('/usuarios/login', credentials);
         
         if (response.data && response.data.data) {
@@ -192,28 +203,45 @@ export const ApiProvider = ({ children }) => {
           localStorage.setItem('smartbee_token', response.data.data.token);
           localStorage.setItem('smartbee_user', JSON.stringify(response.data.data.usuario));
           
-          console.log('✅ Login exitoso desde ApiContext');
+          console.log('✅ Login exitoso:', response.data.data.usuario);
+          setIsConnected(true);
+          setError(null);
+          
           return response.data;
         }
         
         throw new Error('Respuesta de login inválida');
       } catch (error) {
-        console.error('❌ Error en login desde ApiContext:', error);
+        console.error('❌ Error en login:', error);
+        
+        // Manejo específico de errores de login
+        if (error.response?.status === 401) {
+          throw new Error('Credenciales incorrectas');
+        } else if (error.response?.status === 400) {
+          throw new Error(error.response.data?.error || 'Datos de login incorrectos');
+        } else if (error.code === 'ERR_NETWORK') {
+          setIsConnected(false);
+          throw new Error('No se puede conectar al servidor');
+        }
+        
         throw error;
       }
     },
+    
     // Método para cerrar sesión
     logout: () => {
       localStorage.removeItem('smartbee_token');
       localStorage.removeItem('smartbee_user');
-      console.log('👋 Sesión cerrada desde ApiContext');
+      console.log('👋 Sesión cerrada');
     },
+    
     // Método para verificar si está autenticado
     isAuthenticated: () => {
       const token = localStorage.getItem('smartbee_token');
       const user = localStorage.getItem('smartbee_user');
       return !!(token && user);
     },
+    
     // Método para obtener usuario actual
     getCurrentUser: () => {
       try {
@@ -226,6 +254,9 @@ export const ApiProvider = ({ children }) => {
     }
   };
 
+  // =============================================
+  // MÉTODOS PARA ROLES
+  // =============================================
   const roles = {
     getAll: () => apiRequest('get', '/roles'),
     getById: (id) => apiRequest('get', `/roles/${id}`),
@@ -234,6 +265,9 @@ export const ApiProvider = ({ children }) => {
     delete: (id) => apiRequest('delete', `/roles/${id}`),
   };
 
+  // =============================================
+  // MÉTODOS PARA COLMENAS
+  // =============================================
   const colmenas = {
     getAll: () => apiRequest('get', '/colmenas'),
     getById: (id) => apiRequest('get', `/colmenas/${id}`),
@@ -241,6 +275,7 @@ export const ApiProvider = ({ children }) => {
     update: (id, data) => apiRequest('put', `/colmenas/${id}`, data),
     delete: (id) => apiRequest('delete', `/colmenas/${id}`),
     getByDueno: (duenoId) => apiRequest('get', `/colmenas/dueno/${duenoId}`),
+    // ✅ Métodos adicionales mantenidos para compatibilidad
     getUbicaciones: (id) => apiRequest('get', `/colmenas/${id}/ubicaciones`),
     addUbicacion: (id, data) => apiRequest('post', `/colmenas/${id}/ubicaciones`, data),
     getNodos: (id) => apiRequest('get', `/colmenas/${id}/nodos`),
@@ -248,6 +283,9 @@ export const ApiProvider = ({ children }) => {
     removeNodo: (colmenaId, nodoId) => apiRequest('delete', `/colmenas/${colmenaId}/nodos/${nodoId}`),
   };
 
+  // =============================================
+  // MÉTODOS PARA NODOS
+  // =============================================
   const nodos = {
     getAll: () => apiRequest('get', '/nodos'),
     getById: (id) => apiRequest('get', `/nodos/${id}`),
@@ -263,6 +301,9 @@ export const ApiProvider = ({ children }) => {
     getExterioresDisponibles: () => apiRequest('get', '/nodos/exteriores/disponibles'),
   };
 
+  // =============================================
+  // MÉTODOS PARA TIPOS DE NODOS
+  // =============================================
   const nodoTipos = {
     getAll: () => apiRequest('get', '/nodo-tipos'),
     getById: (id) => apiRequest('get', `/nodo-tipos/${id}`),
@@ -271,46 +312,103 @@ export const ApiProvider = ({ children }) => {
     delete: (id) => apiRequest('delete', `/nodo-tipos/${id}`),
   };
 
+  // =============================================
+  // MÉTODOS PARA MENSAJES (COMPATIBLES CON NUEVA ESTRUCTURA)
+  // =============================================
   const mensajes = {
     getAll: (limit = 100) => apiRequest('get', `/mensajes?limit=${limit}`),
     getById: (id) => apiRequest('get', `/mensajes/${id}`),
     create: (data) => apiRequest('post', '/mensajes', data),
     getByNodo: (nodoId, limit = 100) => apiRequest('get', `/mensajes/nodo/${nodoId}?limit=${limit}`),
     getByTopico: (topico, limit = 100) => apiRequest('get', `/mensajes/topico/${topico}?limit=${limit}`),
-    getRecientes: (hours = 24) => apiRequest('get', `/mensajes/recientes?hours=${hours}`),
     delete: (id) => apiRequest('delete', `/mensajes/${id}`),
+    
+    // ✅ MÉTODOS ACTUALIZADOS para nueva estructura
+    getRecientes: async (hours = 24) => {
+      try {
+        const response = await apiRequest('get', `/mensajes/recientes?hours=${hours}`);
+        return response;
+      } catch (error) {
+        console.error('❌ Error obteniendo mensajes recientes:', error);
+        // Fallback a endpoint simple si falla el principal
+        try {
+          console.log('🔄 Intentando endpoint de fallback...');
+          const fallbackResponse = await apiRequest('get', `/mensajes/simple`);
+          return fallbackResponse;
+        } catch (fallbackError) {
+          console.error('❌ También falló el endpoint de fallback:', fallbackError);
+          throw error; // Lanzar el error original
+        }
+      }
+    },
+    
+    // ✅ NUEVOS MÉTODOS de diagnóstico
+    testStatus: () => apiRequest('get', '/mensajes/status', null, false),
+    testSimple: () => apiRequest('get', '/mensajes/simple', null, false),
+    createTestMessage: () => apiRequest('post', '/mensajes/test-message'),
+    getNodosEspecificos: () => apiRequest('get', '/mensajes/nodos-especificos', null, false),
   };
 
-  // En ApiContext.js, actualizar el método getSensorData:
-const dashboard = {
+  // =============================================
+  // MÉTODOS PARA DASHBOARD (ACTUALIZADOS)
+  // =============================================
+  const dashboard = {
     getStats: () => apiRequest('get', '/dashboard/stats'),
     getRecent: () => apiRequest('get', '/dashboard/recent'),
     getAlertas: () => apiRequest('get', '/dashboard/alertas'),
     getGraficos: () => apiRequest('get', '/dashboard/graficos'),
     getMonitoreo: () => apiRequest('get', '/dashboard/monitoreo'),
-    // ✅ MÉTODO ACTUALIZADO para incluir userId
-    getSensorData: (hours = 168, userId = null) => {
-        // Si no se proporciona userId, intentar obtenerlo del localStorage
-        if (!userId) {
-            try {
-                const userData = localStorage.getItem('smartbee_user');
-                if (userData) {
-                    const user = JSON.parse(userData);
-                    userId = user.id;
-                }
-            } catch (error) {
-                console.error('Error obteniendo userId del localStorage:', error);
-            }
+    
+    // ✅ MÉTODO ACTUALIZADO para incluir userId obligatorio
+    getSensorData: async (hours = 168, userId = null) => {
+      // Si no se proporciona userId, intentar obtenerlo del localStorage
+      if (!userId) {
+        try {
+          const userData = localStorage.getItem('smartbee_user');
+          if (userData) {
+            const user = JSON.parse(userData);
+            userId = user.id;
+          }
+        } catch (error) {
+          console.error('Error obteniendo userId del localStorage:', error);
         }
-        
-        if (!userId) {
-            throw new Error('Se requiere userId para obtener datos de sensores');
-        }
-        
-        return apiRequest('get', `/dashboard/sensor-data?hours=${hours}&userId=${userId}`);
+      }
+      
+      if (!userId) {
+        throw new Error('Se requiere userId para obtener datos de sensores');
+      }
+      
+      try {
+        return await apiRequest('get', `/dashboard/sensor-data?hours=${hours}&userId=${userId}`);
+      } catch (error) {
+        console.error('❌ Error obteniendo datos de sensores:', error);
+        // Devolver estructura vacía compatible si falla
+        return {
+          internos: [],
+          externos: [],
+          combinados: [],
+          nodos: { interior: [], exterior: [] },
+          message: 'Error obteniendo datos de sensores',
+          error: true
+        };
+      }
     }
-};
+  };
 
+  // =============================================
+  // MÉTODOS PARA ESTACIONES
+  // =============================================
+  const estaciones = {
+    getAll: () => apiRequest('get', '/estaciones'),
+    getById: (id) => apiRequest('get', `/estaciones/${id}`),
+    create: (data) => apiRequest('post', '/estaciones', data),
+    update: (id, data) => apiRequest('put', `/estaciones/${id}`, data),
+    delete: (id) => apiRequest('delete', `/estaciones/${id}`),
+  };
+
+  // =============================================
+  // MÉTODOS PARA SELECTS (COMPATIBILIDAD)
+  // =============================================
   const selects = {
     usuarios: () => apiRequest('get', '/select/usuarios', null, false),
     roles: () => apiRequest('get', '/select/roles', null, false),
@@ -319,7 +417,9 @@ const dashboard = {
     nodoTipos: () => apiRequest('get', '/select/nodo-tipos', null, false),
   };
 
-  // Métodos para reportes y análisis
+  // =============================================
+  // MÉTODOS PARA REPORTES
+  // =============================================
   const reportes = {
     temperaturas: (colmenaId, fechaInicio, fechaFin) => 
       apiRequest('get', `/reportes/temperaturas/${colmenaId}?inicio=${fechaInicio}&fin=${fechaFin}`),
@@ -330,6 +430,26 @@ const dashboard = {
     resumen: (colmenaId) => apiRequest('get', `/reportes/resumen/${colmenaId}`),
   };
 
+  // =============================================
+  // MÉTODOS DE DIAGNÓSTICO (NUEVOS)
+  // =============================================
+  const diagnostic = {
+    // Test completo de base de datos
+    fullDatabaseCheck: () => apiRequest('get', '/diagnostic/database-full-check', null, false),
+    
+    // Crear tablas faltantes
+    setupTables: () => apiRequest('post', '/diagnostic/setup-tables'),
+    
+    // Poblar con datos de prueba
+    populateTestData: () => apiRequest('post', '/diagnostic/populate-test-data'),
+    
+    // Test rápido de mensajes
+    testMessages: () => apiRequest('get', '/mensajes/test', null, false),
+  };
+
+  // =============================================
+  // VALOR DEL CONTEXTO
+  // =============================================
   const value = {
     // Estado
     isConnected,
@@ -347,8 +467,12 @@ const dashboard = {
     nodoTipos,
     mensajes,
     dashboard,
+    estaciones,
     reportes,
     selects,
+    
+    // ✅ NUEVO: Métodos de diagnóstico
+    diagnostic,
     
     // Método genérico
     apiRequest,
@@ -358,6 +482,34 @@ const dashboard = {
     
     // URL base para referencia
     baseURL: getBaseURL(),
+    
+    // ✅ NUEVOS MÉTODOS HELPER
+    // Verificar si el backend está funcionando
+    isBackendHealthy: () => isConnected && !error,
+    
+    // Obtener información del usuario actual
+    getCurrentUserInfo: () => {
+      try {
+        const userData = localStorage.getItem('smartbee_user');
+        const token = localStorage.getItem('smartbee_token');
+        return {
+          user: userData ? JSON.parse(userData) : null,
+          token: token,
+          isAuthenticated: !!(userData && token)
+        };
+      } catch (error) {
+        console.error('Error obteniendo información del usuario:', error);
+        return { user: null, token: null, isAuthenticated: false };
+      }
+    },
+    
+    // Limpiar datos de sesión
+    clearSession: () => {
+      localStorage.removeItem('smartbee_token');
+      localStorage.removeItem('smartbee_user');
+      setError(null);
+      console.log('🧹 Sesión limpiada');
+    }
   };
 
   return (
