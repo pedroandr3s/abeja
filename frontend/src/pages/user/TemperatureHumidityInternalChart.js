@@ -14,7 +14,12 @@ Chart.Chart.register(
   Chart.Filler
 );
 
-const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
+const TemperatureHumidityInternalChart = ({ 
+  filteredData, 
+  ensureDate, 
+  isAggregated = false, 
+  aggregationType = 'individual' 
+}) => {
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
   const isMobile = window.innerWidth <= 768;
@@ -31,8 +36,10 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
       .filter(d => d.temperatura !== null && d.temperatura !== undefined)
       .map(d => ({
         ...d,
-        fechaStr: formatDateTime(d.fecha),
-        fechaCompleta: formatFullDateTime(d.fecha),
+        fechaStr: isAggregated ? d.groupKey : formatDateTime(d.fecha),
+        fechaCompleta: isAggregated ? 
+          `${d.groupKey} (Promedio de ${d.tempCount || d.originalCount || 1} lecturas)` : 
+          formatFullDateTime(d.fecha),
         valor: d.temperatura
       }));
 
@@ -40,8 +47,10 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
       .filter(d => d.humedad !== null && d.humedad !== undefined)
       .map(d => ({
         ...d,
-        fechaStr: formatDateTime(d.fecha),
-        fechaCompleta: formatFullDateTime(d.fecha),
+        fechaStr: isAggregated ? d.groupKey : formatDateTime(d.fecha),
+        fechaCompleta: isAggregated ? 
+          `${d.groupKey} (Promedio de ${d.humCount || d.originalCount || 1} lecturas)` : 
+          formatFullDateTime(d.fecha),
         valor: d.humedad
       }));
 
@@ -71,6 +80,17 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
     return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
   };
 
+  // Función para obtener etiqueta de agregación
+  const getAggregationLabel = (type) => {
+    switch (type) {
+      case 'daily': return 'Promedio Diario';
+      case 'weekly': return 'Promedio Semanal';
+      case 'monthly': return 'Promedio Mensual';
+      case 'individual': return 'Datos Individuales';
+      default: return 'Datos Agrupados';
+    }
+  };
+
   const createChart = () => {
     if (!chartRef.current) return;
 
@@ -91,7 +111,9 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
     // Dataset de temperatura
     if (data.temperaturaData.length > 0) {
       datasets.push({
-        label: `Temperatura Interna (${data.temperaturaData.length} lecturas)`,
+        label: isAggregated ? 
+          `Temperatura Interna - ${getAggregationLabel(aggregationType)} (${data.temperaturaData.length})` :
+          `Temperatura Interna (${data.temperaturaData.length} lecturas)`,
         data: data.temperaturaData.map(d => ({
           x: d.fechaStr,
           y: d.valor,
@@ -100,11 +122,11 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
         borderColor: '#ef4444',
         backgroundColor: 'rgba(239, 68, 68, 0.1)',
         tension: 0.1,
-        pointRadius: 3,
-        pointHoverRadius: 5,
+        pointRadius: isAggregated ? 5 : 3,
+        pointHoverRadius: isAggregated ? 7 : 5,
         pointBackgroundColor: '#ef4444',
         pointBorderColor: '#ffffff',
-        pointBorderWidth: 1,
+        pointBorderWidth: isAggregated ? 2 : 1,
         fill: false,
         yAxisID: 'temp'
       });
@@ -113,7 +135,9 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
     // Dataset de humedad
     if (data.humedadData.length > 0) {
       datasets.push({
-        label: `Humedad Interna (${data.humedadData.length} lecturas)`,
+        label: isAggregated ? 
+          `Humedad Interna - ${getAggregationLabel(aggregationType)} (${data.humedadData.length})` :
+          `Humedad Interna (${data.humedadData.length} lecturas)`,
         data: data.humedadData.map(d => ({
           x: d.fechaStr,
           y: d.valor,
@@ -122,11 +146,11 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
         borderColor: '#10b981',
         backgroundColor: 'rgba(16, 185, 129, 0.1)',
         tension: 0.1,
-        pointRadius: 3,
-        pointHoverRadius: 5,
+        pointRadius: isAggregated ? 5 : 3,
+        pointHoverRadius: isAggregated ? 7 : 5,
         pointBackgroundColor: '#10b981',
         pointBorderColor: '#ffffff',
-        pointBorderWidth: 1,
+        pointBorderWidth: isAggregated ? 2 : 1,
         fill: false,
         yAxisID: 'hum'
       });
@@ -161,8 +185,10 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
                 if (context.parsed.y !== null) {
                   if (context.dataset.yAxisID === 'temp') {
                     label += context.parsed.y.toFixed(1) + '°C';
+                    if (isAggregated) label += ' (promedio)';
                   } else {
                     label += context.parsed.y.toFixed(1) + '%';
+                    if (isAggregated) label += ' (promedio)';
                   }
                 }
                 return label;
@@ -173,7 +199,10 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
         scales: {
           x: {
             type: 'category',
-            title: { display: true, text: 'Tiempo' },
+            title: { 
+              display: true, 
+              text: isAggregated ? `Tiempo - ${getAggregationLabel(aggregationType)}` : 'Tiempo'
+            },
             ticks: { 
               maxRotation: 45, 
               minRotation: 45,
@@ -184,14 +213,20 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
             type: 'linear',
             display: data.temperaturaData.length > 0,
             position: 'left',
-            title: { display: true, text: 'Temperatura (°C)' },
+            title: { 
+              display: true, 
+              text: isAggregated ? 'Temperatura (°C) - Promedio' : 'Temperatura (°C)' 
+            },
             grid: { drawOnChartArea: true },
           },
           hum: {
             type: 'linear',
             display: data.humedadData.length > 0,
             position: 'right',
-            title: { display: true, text: 'Humedad (%)' },
+            title: { 
+              display: true, 
+              text: isAggregated ? 'Humedad (%) - Promedio' : 'Humedad (%)' 
+            },
             grid: { drawOnChartArea: false },
             min: 0,
             max: 100
@@ -211,7 +246,7 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
         chartInstance.current.destroy();
       }
     };
-  }, [filteredData]);
+  }, [filteredData, isAggregated, aggregationType]);
 
   const data = processInternalData();
   
@@ -263,6 +298,18 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
           gap: '8px'
         }}>
           📊 Historial Sensores Internos
+          {isAggregated && (
+            <span style={{
+              fontSize: '0.8rem',
+              fontWeight: '500',
+              color: '#059669',
+              backgroundColor: '#ecfdf5',
+              padding: '2px 8px',
+              borderRadius: '12px'
+            }}>
+              {getAggregationLabel(aggregationType)}
+            </span>
+          )}
           <span style={{
             fontSize: '0.8rem',
             fontWeight: '500',
@@ -283,10 +330,19 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
           }}>
             <thead style={{ position: 'sticky', top: 0, backgroundColor: '#f8fafc', zIndex: 1 }}>
               <tr>
-                <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>Fecha/Hora</th>
+                <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>
+                  {isAggregated ? `Período (${getAggregationLabel(aggregationType)})` : 'Fecha/Hora'}
+                </th>
                 <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>Tipo</th>
-                <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>Valor</th>
-                <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>Nodo</th>
+                <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>
+                  {isAggregated ? 'Valor Promedio' : 'Valor'}
+                </th>
+                {!isAggregated && (
+                  <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>Nodo</th>
+                )}
+                {isAggregated && (
+                  <th style={{ padding: '12px 8px', textAlign: 'left', fontWeight: '600', color: '#374151', borderBottom: '2px solid #e5e7eb' }}>Lecturas</th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -310,10 +366,18 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
                   </td>
                   <td style={{ padding: '10px 8px', color: '#6b7280', fontWeight: '600' }}>
                     {row.valor.toFixed(1)}{row.unidad}
+                    {isAggregated && <span style={{ fontSize: '0.8rem', color: '#9ca3af' }}> (prom.)</span>}
                   </td>
-                  <td style={{ padding: '10px 8px', color: '#6b7280' }}>
-                    {row.nodo_id ? row.nodo_id.substring(0, 8) + '...' : 'N/A'}
-                  </td>
+                  {!isAggregated && (
+                    <td style={{ padding: '10px 8px', color: '#6b7280' }}>
+                      {row.nodo_id ? row.nodo_id.substring(0, 8) + '...' : 'N/A'}
+                    </td>
+                  )}
+                  {isAggregated && (
+                    <td style={{ padding: '10px 8px', color: '#6b7280' }}>
+                      {row.tipo === 'temperatura' ? (row.tempCount || row.originalCount || 1) : (row.humCount || row.originalCount || 1)}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -353,6 +417,15 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
             letterSpacing: '0.025em'
           }}>
             🌡️💧 Temperatura y Humedad Interna
+            {isAggregated && (
+              <span style={{ 
+                fontSize: '0.8rem', 
+                color: '#059669',
+                marginLeft: '8px'
+              }}>
+                ({getAggregationLabel(aggregationType)})
+              </span>
+            )}
           </h3>
         </div>
         
@@ -386,11 +459,16 @@ const TemperatureHumidityInternalChart = ({ filteredData, ensureDate }) => {
           border: '1px solid rgba(229, 231, 235, 0.5)'
         }}>
           <span style={{ fontSize: '12px', color: '#6b7280' }}>
-            Temperatura: {data.temperaturaData.length} lecturas
+            Temperatura: {data.temperaturaData.length} {isAggregated ? 'períodos' : 'lecturas'}
           </span>
           <span style={{ fontSize: '12px', color: '#6b7280' }}>
-            Humedad: {data.humedadData.length} lecturas
+            Humedad: {data.humedadData.length} {isAggregated ? 'períodos' : 'lecturas'}
           </span>
+          {isAggregated && (
+            <span style={{ fontSize: '12px', color: '#059669', fontWeight: '600' }}>
+              📊 {getAggregationLabel(aggregationType)}
+            </span>
+          )}
         </div>
       </div>
 
