@@ -31,7 +31,7 @@ const ROLE_CONFIG = {
   },
   API: {
     name: 'Apicultor',
-    defaultRoute: '/user-dashboard',
+    defaultRoute: '/chillan',
     routes: [
       { path: '/user-dashboard', component: UserDashboard, name: 'Mi Dashboard', icon: '📊' },
     ]

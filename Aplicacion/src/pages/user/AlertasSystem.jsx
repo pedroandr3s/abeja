@@ -1,375 +1,312 @@
-
-                import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useApi } from '../../context/ApiContext'; // Ajusta la ruta según tu estructura
 
 const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
+  const { alertas, usuarios, colmenas, loading, error } = useApi();
   const [alertasActivas, setAlertasActivas] = useState([]);
+  const [alertasDefinidas, setAlertasDefinidas] = useState([]);
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [filtroPrioridad, setFiltroPrioridad] = useState('todos');
   const [historialAlertas, setHistorialAlertas] = useState([]);
   const [tabActiva, setTabActiva] = useState('activas');
+  const [colmenasUsuario, setColmenasUsuario] = useState([]);
+  const [loadingAlertas, setLoadingAlertas] = useState(false);
 
-  // Configuración de períodos estacionales
-  const getPerioodoEstacional = () => {
-    const mes = new Date().getMonth() + 1; // 1-12
-    return {
-      esInvernada: mes >= 3 && mes <= 7,
-      esPrimaveraVerano: mes >= 8 || mes <= 2,
-      esEnjarbrazon: (mes >= 8 && mes <= 12) || mes === 1, // Agosto-Enero
-      esCosecha: mes >= 11 || mes <= 3 // Noviembre-Marzo
+  // Obtener información del usuario actual
+  const usuarioActual = usuarios.getCurrentUser();
+
+  // Cargar alertas definidas al montar el componente
+  useEffect(() => {
+    const cargarAlertasDefinidas = async () => {
+      try {
+        const response = await alertas.getAll();
+        setAlertasDefinidas(response.data || []);
+      } catch (error) {
+        console.error('Error cargando alertas definidas:', error);
+      }
     };
-  };
 
-  // Evaluar todas las alertas basadas en las especificaciones
-  const evaluarAlertas = useMemo(() => {
-    if (!filteredData || filteredData.length === 0) return [];
+    if (isOpen) {
+      cargarAlertasDefinidas();
+    }
+  }, [isOpen, alertas]);
 
-    const alertas = [];
-    const periodos = getPerioodoEstacional();
-    const ultimaLectura = filteredData[filteredData.length - 1];
-    const ahora = new Date();
+  // Cargar colmenas del usuario y evaluar alertas
+  useEffect(() => {
+    const cargarDatosUsuario = async () => {
+      if (!usuarioActual || !isOpen) return;
 
-    // Obtener datos de las últimas 24 y 48 horas para contadores
-    const hace24h = new Date(ahora.getTime() - 24 * 60 * 60 * 1000);
-    const hace48h = new Date(ahora.getTime() - 48 * 60 * 60 * 1000);
+      setLoadingAlertas(true);
+      try {
+        // Obtener colmenas del usuario
+        const colmenasResponse = await colmenas.getByDueno(usuarioActual.id);
+        const colmenasData = colmenasResponse.data || [];
+        setColmenasUsuario(colmenasData);
+
+        // Evaluar alertas para todas las colmenas del usuario usando el método optimizado
+        const alertasResponse = await alertas.evaluarParaUsuario(168); // Últimas 7 días
+        
+        if (alertasResponse.success) {
+          const { alertas_usuario, alertas_por_colmena } = alertasResponse.data;
+          
+          // Procesar alertas activas de evaluación en tiempo real
+          const todasLasAlertas = [];
+          alertas_por_colmena.forEach(({ colmena, alertas: alertasColmena }) => {
+            const alertasConColmena = alertasColmena.map(alerta => ({
+              ...alerta,
+              colmena_nombre: colmena.nombre || `Colmena #${colmena.id}`,
+              colmena_id: colmena.id,
+              es_tiempo_real: true
+            }));
+            todasLasAlertas.push(...alertasConColmena);
+          });
+
+          // Convertir fechas en alertas activas
+          const alertasActivasConFecha = todasLasAlertas.map(alerta => ({
+            ...alerta,
+            fecha: new Date(alerta.fecha)
+          }));
+
+          setAlertasActivas(alertasActivasConFecha);
+
+          // Procesar historial desde nodo_alerta
+          const historialConFormato = alertas_usuario.map(alertaHistorial => ({
+            id: alertaHistorial.alerta_id,
+            nombre: alertaHistorial.nombre,
+            descripcion: alertaHistorial.descripcion,
+            indicador: alertaHistorial.indicador,
+            fecha: new Date(alertaHistorial.fecha),
+            colmena_nombre: alertaHistorial.colmena_nombre,
+            colmena_id: alertaHistorial.colmena_id,
+            nodo_id: alertaHistorial.nodo_id,
+            nodo_nombre: alertaHistorial.nodo_nombre,
+            tipo_nodo: alertaHistorial.tipo_nodo,
+            es_historial: true,
+            prioridad: 'MEDIA' // El historial no tiene prioridad específica
+          }));
+
+          setHistorialAlertas(historialConFormato);
+        }
+
+      } catch (error) {
+        console.error('Error cargando datos del usuario:', error);
+      } finally {
+        setLoadingAlertas(false);
+      }
+    };
+
+    cargarDatosUsuario();
+  }, [usuarioActual, isOpen, alertas, colmenas]);
+
+  // Mapeo de alertas de base de datos a la UI
+  const mapearAlertaDB = (alertaDB) => {
+    const alertaDefinida = alertasDefinidas.find(def => def.id === alertaDB.id);
     
-    const datos24h = filteredData.filter(d => d.fecha >= hace24h);
-    const datos48h = filteredData.filter(d => d.fecha >= hace48h);
+    // Mapeo de prioridades
+    const prioridadMap = {
+      'CRÍTICA': 'CRÍTICA',
+      'ALTA': 'ALTA', 
+      'PREVENTIVA': 'PREVENTIVA',
+      'MEDIA': 'MEDIA',
+      'INFORMATIVA': 'INFORMATIVA'
+    };
 
-    // ========== ALERTAS DE TEMPERATURA ==========
+    // Mapeo de tipos basado en el indicador
+    let tipo = 'general';
+    if (alertaDefinida?.indicador?.toLowerCase().includes('temperatura')) {
+      tipo = 'temperatura';
+    } else if (alertaDefinida?.indicador?.toLowerCase().includes('humedad')) {
+      tipo = 'humedad';
+    } else if (alertaDefinida?.indicador?.toLowerCase().includes('peso')) {
+      tipo = 'peso';
+    } else if (alertaDefinida?.indicador?.toLowerCase().includes('externa') && 
+               alertaDefinida?.indicador?.toLowerCase().includes('interna')) {
+      tipo = 'combinada';
+    }
 
-    // 1. Temperatura Alta Crítica (>38°C, 8 eventos en 24h)
-    const eventosTemp38Plus = datos24h.filter(d => d.temperatura > 38).length;
-    if (eventosTemp38Plus >= 8) {
-      alertas.push({
-        id: 'temp_critica_alta',
-        tipo: 'temperatura',
-        subtipo: 'critica_alta',
-        prioridad: 'CRÍTICA',
-        titulo: '🔥 TEMPERATURA CRÍTICA ALTA',
-        mensaje: 'Riesgo de colapso de panales',
-        valor: ultimaLectura.temperatura,
-        unidad: '°C',
-        condicion: '>38°C',
-        eventos: eventosTemp38Plus,
-        fecha: ultimaLectura.fecha,
-        acciones: [
+    // Generar acciones basadas en el tipo de alerta
+    const generarAcciones = (alertaId, tipo) => {
+      const accionesMap = {
+        'ALERT001': [
           'Alerta urgente: visitar apiario inmediatamente',
-          'Retirar listón guarda piquera para mejorar ventilación',
+          'Retirar listón guarda piquera para mejorar ventilación', 
           'Evaluar necesidad de colocar alza para descongestionar',
           'Proporcionar fuentes de hidratación adicionales',
           'Implementar sombreado (malla sombra NO negra o sombra natural)'
-        ]
-      });
-    }
-
-    // 2. Temperatura Alta Preventiva (36-37°C, 8 eventos en 48h)
-    const eventosTemp36_37 = datos48h.filter(d => d.temperatura >= 36 && d.temperatura <= 37).length;
-    if (eventosTemp36_37 >= 8 && eventosTemp38Plus < 8) {
-      alertas.push({
-        id: 'temp_alta_preventiva',
-        tipo: 'temperatura',
-        subtipo: 'alta_preventiva',
-        prioridad: 'PREVENTIVA',
-        titulo: '⚠️ TEMPERATURA ALTA',
-        mensaje: 'Monitoreo preventivo requerido',
-        valor: ultimaLectura.temperatura,
-        unidad: '°C',
-        condicion: '36-37°C',
-        eventos: eventosTemp36_37,
-        fecha: ultimaLectura.fecha,
-        acciones: [
+        ],
+        'ALERT002': [
           'Revisar y ajustar guarda piquera',
           'Evaluar necesidad de alza adicional',
           'Revisar control de enjambrazón',
           'Proporcionar fuentes de hidratación',
           'Implementar sombreado preventivo'
-        ]
-      });
-    }
-
-    // 3. Temperatura Baja Crítica (Invernada: <12°C, 8 eventos en 48h)
-    if (periodos.esInvernada) {
-      const eventosTempBaja12 = datos48h.filter(d => d.temperatura < 12).length;
-      if (eventosTempBaja12 >= 8) {
-        alertas.push({
-          id: 'temp_critica_baja_invernada',
-          tipo: 'temperatura',
-          subtipo: 'critica_baja',
-          prioridad: 'CRÍTICA',
-          titulo: '🧊 TEMPERATURA CRÍTICA BAJA',
-          mensaje: 'Riesgo de supervivencia colonia (Período Invernada)',
-          valor: ultimaLectura.temperatura,
-          unidad: '°C',
-          condicion: '<12°C',
-          eventos: eventosTempBaja12,
-          fecha: ultimaLectura.fecha,
-          acciones: [
-            'Revisar población (si <4 marcos con abejas → fusionar o cambiar a nuclero)',
-            'Evaluar reservas de alimento (suplementar si es necesario)',
-            'Reducir espacio de colmena (retirar alzas no utilizadas)',
-            'Verificar posición relativa de abejas respecto al sensor'
-          ]
-        });
-      }
-    }
-
-    // 4. Temperatura Baja Preventiva (Invernada: 13-15°C, 8 eventos en 48h)
-    if (periodos.esInvernada) {
-      const eventosTempBaja13_15 = datos48h.filter(d => d.temperatura >= 13 && d.temperatura <= 15).length;
-      if (eventosTempBaja13_15 >= 8 && datos48h.filter(d => d.temperatura < 12).length < 8) {
-        alertas.push({
-          id: 'temp_baja_preventiva_invernada',
-          tipo: 'temperatura',
-          subtipo: 'baja_preventiva',
-          prioridad: 'PREVENTIVA',
-          titulo: '❄️ TEMPERATURA BAJA',
-          mensaje: 'Monitoreo invernal preventivo',
-          valor: ultimaLectura.temperatura,
-          unidad: '°C',
-          condicion: '13-15°C',
-          eventos: eventosTempBaja13_15,
-          fecha: ultimaLectura.fecha,
-          acciones: [
-            'Gestionar tamaño de colmena (retirar alzas innecesarias)',
-            'Evaluar reservas de alimento',
-            'Verificar posición de abejas respecto al sensor'
-          ]
-        });
-      }
-    }
-
-    // ========== ALERTAS DE HUMEDAD ==========
-
-    // 1. Humedad Alta Crítica (Invernada: >70%)
-    if (periodos.esInvernada && ultimaLectura.humedad > 70) {
-      alertas.push({
-        id: 'humedad_critica_alta_invernada',
-        tipo: 'humedad',
-        subtipo: 'critica_alta',
-        prioridad: 'CRÍTICA',
-        titulo: '💧 HUMEDAD CRÍTICA ALTA',
-        mensaje: 'Riesgo de hongos y enfermedades (Período Invernada)',
-        valor: ultimaLectura.humedad,
-        unidad: '%',
-        condicion: '>70%',
-        fecha: ultimaLectura.fecha,
-        acciones: [
+        ],
+        'ALERT003': [
+          'Revisar población (si <4 marcos con abejas → fusionar o cambiar a nuclero)',
+          'Evaluar reservas de alimento (suplementar si es necesario)',
+          'Reducir espacio de colmena (retirar alzas no utilizadas)',
+          'Verificar posición relativa de abejas respecto al sensor'
+        ],
+        'ALERT004': [
+          'Gestionar tamaño de colmena (retirar alzas innecesarias)',
+          'Evaluar reservas de alimento',
+          'Verificar posición de abejas respecto al sensor'
+        ],
+        'ALERT005': [
+          'Revisar y ajustar guarda piquera externa',
+          'Evaluar ubicación del apiario (exceso de radiación)',
+          'Implementar sombreado natural'
+        ],
+        'ALERT006': [
+          'Monitorear condiciones climáticas externas',
+          'Verificar protección de la colmena',
+          'Evaluar microubicación del apiario'
+        ],
+        'ALERT007': [
           'Verificar posición de abejas respecto al sensor',
           'Reducir espacio de colmena (retirar alzas no utilizadas)',
           'Revisar estado físico de la colmena (cambiar si está deteriorada)',
           'Evaluar población (si <4 marcos → fusionar o cambiar a nuclero)',
           'Revisar ubicación del apiario (cambiar si está en zona húmeda)'
-        ]
-      });
-    }
-
-    // 2. Humedad Alta Preventiva (Invernada: >60%)
-    if (periodos.esInvernada && ultimaLectura.humedad > 60 && ultimaLectura.humedad <= 70) {
-      alertas.push({
-        id: 'humedad_alta_preventiva_invernada',
-        tipo: 'humedad',
-        subtipo: 'alta_preventiva',
-        prioridad: 'PREVENTIVA',
-        titulo: '💦 HUMEDAD ALTA',
-        mensaje: 'Monitoreo preventivo invernal',
-        valor: ultimaLectura.humedad,
-        unidad: '%',
-        condicion: '>60%',
-        fecha: ultimaLectura.fecha,
-        acciones: [
+        ],
+        'ALERT008': [
           'Gestionar tamaño de colmena',
           'Colocar cuña para drenaje hacia piquera'
-        ]
-      });
-    }
-
-    // 3. Humedad Baja Crítica (Primavera-Verano: <40%)
-    if (periodos.esPrimaveraVerano && ultimaLectura.humedad < 40) {
-      alertas.push({
-        id: 'humedad_critica_baja_verano',
-        tipo: 'humedad',
-        subtipo: 'critica_baja',
-        prioridad: 'CRÍTICA',
-        titulo: '🏜️ HUMEDAD CRÍTICA BAJA',
-        mensaje: 'Riesgo de deshidratación de cría (Primavera-Verano)',
-        valor: ultimaLectura.humedad,
-        unidad: '%',
-        condicion: '<40%',
-        fecha: ultimaLectura.fecha,
-        acciones: [
+        ],
+        'ALERT009': [
           'URGENTE: Proporcionar fuentes de agua inmediatamente',
           'Evaluar ubicación del apiario (exceso de radiación solar)',
           'Implementar mecanismos de sombra'
-        ]
-      });
-    }
-
-    // 4. Humedad Baja Preventiva (Primavera-Verano: <50%)
-    if (periodos.esPrimaveraVerano && ultimaLectura.humedad < 50 && ultimaLectura.humedad >= 40) {
-      alertas.push({
-        id: 'humedad_baja_preventiva_verano',
-        tipo: 'humedad',
-        subtipo: 'baja_preventiva',
-        prioridad: 'PREVENTIVA',
-        titulo: '🌵 HUMEDAD BAJA',
-        mensaje: 'Monitoreo preventivo estacional',
-        valor: ultimaLectura.humedad,
-        unidad: '%',
-        condicion: '<50%',
-        fecha: ultimaLectura.fecha,
-        acciones: [
+        ],
+        'ALERT010': [
           'Colocar recipientes con agua (con flotadores o piedras)',
           'Registrar para análisis de humedad interna vs externa'
+        ],
+        'ALERT011': [
+          'Revisar colmenas cada 7-10 días eliminando celdas reales',
+          'Colocar alzas en colmenas desarrolladas',
+          'Realizar núcleos aprovechando celdas reales'
+        ],
+        'ALERT012': [
+          'Evaluar cosecha de miel',
+          'Si no se puede cosechar → colocar alzas adicionales'
+        ],
+        'ALERT013': [
+          'Evaluar suplementación alimentaria',
+          'Revisar reservas naturales de la colmena',
+          'Considerar fusión con otra colmena si la pérdida es crítica'
+        ],
+        'ALERT014': [
+          'Investigar causa de pérdida abrupta de peso',
+          'Revisar integridad física de la colmena',
+          'Evaluar posible robo o pillaje'
+        ],
+        'ALERT015': [
+          'URGENTE: Visitar apiario inmediatamente',
+          'Retirar material si hay colonias muertas (evitar pillaje)',
+          'Cambiar a cajas menores si quedan abejas vivas',
+          'Evaluar posición relativa de abejas respecto al sensor'
+        ],
+        'ALERT016': [
+          'URGENTE: Visitar apiario inmediatamente',
+          'Retirar material si hay colonias muertas (evitar pillaje)',
+          'Cambiar a cajas menores si quedan abejas vivas',
+          'Evaluar posición relativa de abejas respecto al sensor'
         ]
-      });
-    }
+      };
 
-    // ========== ALERTAS DE PESO ==========
+      return accionesMap[alertaId] || [
+        'Revisar condiciones de la colmena',
+        'Consultar con especialista si persiste',
+        'Monitorear evolución en próximas mediciones'
+      ];
+    };
 
-    // 1. Alerta de Enjambre (Disminución 500g en 2 mediciones seguidas)
-    if (periodos.esEnjarbrazon && filteredData.length >= 2) {
-      const ultimasPesadas = filteredData.filter(d => d.peso !== null).slice(-2);
-      if (ultimasPesadas.length === 2) {
-        const diferencia = ultimasPesadas[0].peso - ultimasPesadas[1].peso;
-        if (diferencia >= 500) {
-          alertas.push({
-            id: 'alerta_enjambre',
-            tipo: 'peso',
-            subtipo: 'enjambre',
-            prioridad: 'ALTA',
-            titulo: '🐝 ALERTA DE ENJAMBRE',
-            mensaje: 'Pérdida de peso detectada',
-            valor: ultimaLectura.peso / 1000,
-            unidad: 'kg',
-            condicion: 'Disminución >500g',
-            diferencia: diferencia,
-            fecha: ultimaLectura.fecha,
-            acciones: [
-              'Revisar colmenas cada 7-10 días eliminando celdas reales',
-              'Colocar alzas en colmenas desarrolladas',
-              'Realizar núcleos aprovechando celdas reales'
-            ]
-          });
-        }
+    return {
+      id: alertaDB.id,
+      tipo: tipo,
+      subtipo: alertaDB.id.toLowerCase(),
+      prioridad: prioridadMap[alertaDB.prioridad] || 'MEDIA',
+      titulo: `${getEmojiBySeverity(alertaDB.prioridad)} ${alertaDB.nombre}`,
+      mensaje: alertaDB.descripcion || alertaDefinida?.descripcion || 'Condición detectada',
+      valor: alertaDB.valor || 'N/A',
+      unidad: tipo === 'temperatura' ? '°C' : tipo === 'humedad' ? '%' : tipo === 'peso' ? 'kg' : '',
+      condicion: alertaDefinida?.descripcion || 'Revisar condición',
+      eventos: alertaDB.eventos || null,
+      fecha: alertaDB.fecha || new Date(),
+      acciones: generarAcciones(alertaDB.id, tipo),
+      colmena_nombre: alertaDB.colmena_nombre || `Colmena #${alertaDB.colmena_id}`,
+      diferencia: alertaDB.diferencia,
+      incremento: alertaDB.incremento,
+      nodo_id: alertaDB.nodo_id
+    };
+  };
+
+  // Helper para obtener emoji según severidad
+  const getEmojiBySeverity = (prioridad) => {
+    const emojiMap = {
+      'CRÍTICA': '🚨',
+      'ALTA': '⚠️', 
+      'PREVENTIVA': '💡',
+      'MEDIA': 'ℹ️',
+      'INFORMATIVA': '✅'
+    };
+    return emojiMap[prioridad] || 'ℹ️';
+  };
+
+  // Convertir alertas de DB a formato de UI
+  const alertasParaUI = useMemo(() => {
+    return alertasActivas.map(alerta => {
+      // Si es una alerta de tiempo real (recién evaluada)
+      if (alerta.es_tiempo_real) {
+        return mapearAlertaDB(alerta);
       }
-    }
-
-    // 2. Incremento de Peso - Cosecha
-    if (periodos.esCosecha && filteredData.length >= 20) {
-      const datosUltimos20Dias = filteredData.filter(d => d.peso !== null).slice(-20);
-      if (datosUltimos20Dias.length >= 20) {
-        const pesoInicial = datosUltimos20Dias[0].peso;
-        const pesoFinal = datosUltimos20Dias[datosUltimos20Dias.length - 1].peso;
-        const incremento = (pesoFinal - pesoInicial) / 1000; // convertir a kg
-        
-        if (incremento > 20) {
-          alertas.push({
-            id: 'oportunidad_cosecha',
-            tipo: 'peso',
-            subtipo: 'cosecha',
-            prioridad: 'INFORMATIVA',
-            titulo: '🍯 OPORTUNIDAD DE COSECHA',
-            mensaje: 'Incremento significativo de peso',
-            valor: ultimaLectura.peso / 1000,
-            unidad: 'kg',
-            condicion: `+${incremento.toFixed(1)}kg en 20 días`,
-            incremento: incremento,
-            fecha: ultimaLectura.fecha,
-            acciones: [
-              'Evaluar cosecha de miel',
-              'Si no se puede cosechar → colocar alzas adicionales'
-            ]
-          });
-        }
-      }
-    }
-
-    // ========== ALERTAS COMBINADAS ==========
-
-    // Evaluar datos internos vs externos si están disponibles
-    const datosInternos = filteredData.filter(d => d.tipo === 'interno');
-    const datosExternos = filteredData.filter(d => d.tipo === 'externo');
-    
-    if (datosInternos.length > 0 && datosExternos.length > 0) {
-      const ultimoInterno = datosInternos[datosInternos.length - 1];
-      const ultimoExterno = datosExternos[datosExternos.length - 1];
       
-      // Verificar si las mediciones son del mismo período (últimas 6 horas)
-      const hace6h = new Date(ahora.getTime() - 6 * 60 * 60 * 1000);
+      // Si es una alerta del historial de nodo_alerta
+      const alertaDefinida = alertasDefinidas.find(def => def.id === alerta.id);
+      return {
+        ...mapearAlertaDB({
+          id: alerta.id,
+          nombre: alerta.nombre || alertaDefinida?.nombre || 'Alerta',
+          descripcion: alerta.descripcion || alertaDefinida?.descripcion,
+          prioridad: alerta.prioridad || 'MEDIA',
+          valor: alerta.valor || 'N/A',
+          fecha: alerta.fecha,
+          colmena_nombre: alerta.colmena_nombre,
+          colmena_id: alerta.colmena_id,
+          nodo_id: alerta.nodo_id
+        }),
+        es_historial: alerta.es_historial
+      };
+    });
+  }, [alertasActivas, alertasDefinidas]);
+
+  const historialParaUI = useMemo(() => {
+    return historialAlertas.map(alertaHistorial => {
+      const alertaDefinida = alertasDefinidas.find(def => def.id === alertaHistorial.id);
       
-      if (ultimoInterno.fecha >= hace6h && ultimoExterno.fecha >= hace6h) {
-        // Temperatura anormal
-        const difTemp = Math.abs(ultimoInterno.temperatura - ultimoExterno.temperatura);
-        if (difTemp <= 2) {
-          alertas.push({
-            id: 'temperatura_anormal',
-            tipo: 'combinada',
-            subtipo: 'temp_anormal',
-            prioridad: 'CRÍTICA',
-            titulo: '🚨 TEMPERATURA ANORMAL',
-            mensaje: 'Posible mortandad o problema sanitario grave',
-            valor: `${ultimoInterno.temperatura}°C ≈ ${ultimoExterno.temperatura}°C`,
-            unidad: '',
-            condicion: 'T°INTERNA ≈ T°EXTERNA',
-            diferencia: difTemp,
-            fecha: ultimaLectura.fecha,
-            acciones: [
-              'URGENTE: Visitar apiario inmediatamente',
-              'Retirar material si hay colonias muertas (evitar pillaje)',
-              'Cambiar a cajas menores si quedan abejas vivas',
-              'Evaluar posición relativa de abejas respecto al sensor'
-            ]
-          });
-        }
-
-        // Humedad anormal
-        const difHum = Math.abs(ultimoInterno.humedad - ultimoExterno.humedad);
-        if (difHum <= 2) {
-          alertas.push({
-            id: 'humedad_anormal',
-            tipo: 'combinada',
-            subtipo: 'hum_anormal',
-            prioridad: 'CRÍTICA',
-            titulo: '🚨 HUMEDAD ANORMAL',
-            mensaje: 'Posible mortandad o problema sanitario grave',
-            valor: `${ultimoInterno.humedad}% ≈ ${ultimoExterno.humedad}%`,
-            unidad: '',
-            condicion: 'H°INTERNA ≈ H°EXTERNA',
-            diferencia: difHum,
-            fecha: ultimaLectura.fecha,
-            acciones: [
-              'URGENTE: Visitar apiario inmediatamente',
-              'Retirar material si hay colonias muertas (evitar pillaje)',
-              'Cambiar a cajas menores si quedan abejas vivas',
-              'Evaluar posición relativa de abejas respecto al sensor'
-            ]
-          });
-        }
-      }
-    }
-
-    return alertas;
-  }, [filteredData]);
-
-  useEffect(() => {
-    const nuevasAlertas = evaluarAlertas;
-    setAlertasActivas(nuevasAlertas);
-    
-    // Agregar al historial solo alertas nuevas
-    if (nuevasAlertas.length > 0) {
-      setHistorialAlertas(prev => {
-        const alertasNuevas = nuevasAlertas.filter(nueva => 
-          !prev.some(existente => existente.id === nueva.id && 
-            existente.fecha.getTime() === nueva.fecha.getTime())
-        );
-        return [...prev, ...alertasNuevas].slice(-100); // Mantener últimas 100
-      });
-    }
-  }, [evaluarAlertas]);
+      return {
+        ...mapearAlertaDB({
+          id: alertaHistorial.id,
+          nombre: alertaHistorial.nombre || alertaDefinida?.nombre || 'Alerta',
+          descripcion: alertaHistorial.descripcion || alertaDefinida?.descripcion,
+          prioridad: alertaHistorial.prioridad || 'MEDIA',
+          valor: 'Ver detalles',
+          fecha: alertaHistorial.fecha,
+          colmena_nombre: alertaHistorial.colmena_nombre,
+          colmena_id: alertaHistorial.colmena_id,
+          nodo_id: alertaHistorial.nodo_id
+        }),
+        nodo_nombre: alertaHistorial.nodo_nombre,
+        tipo_nodo: alertaHistorial.tipo_nodo,
+        es_historial: true
+      };
+    });
+  }, [historialAlertas, alertasDefinidas]);
 
   // Filtrar alertas según criterios seleccionados
   const alertasFiltradas = useMemo(() => {
-    let alertas = tabActiva === 'activas' ? alertasActivas : historialAlertas;
+    let alertas = tabActiva === 'activas' ? alertasParaUI : historialParaUI;
     
     if (filtroTipo !== 'todos') {
       alertas = alertas.filter(alerta => alerta.tipo === filtroTipo);
@@ -386,7 +323,7 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
       if (diffPrioridad !== 0) return diffPrioridad;
       return b.fecha.getTime() - a.fecha.getTime();
     });
-  }, [alertasActivas, historialAlertas, filtroTipo, filtroPrioridad, tabActiva]);
+  }, [alertasParaUI, historialParaUI, filtroTipo, filtroPrioridad, tabActiva]);
 
   // Configuración de colores por prioridad
   const getColorConfig = (prioridad) => {
@@ -505,6 +442,22 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
             </button>
           </div>
 
+          {/* Información del usuario y colmenas */}
+          {usuarioActual && (
+            <div style={{
+              background: 'rgba(99, 102, 241, 0.1)',
+              padding: '12px',
+              borderRadius: '8px',
+              marginBottom: '16px',
+              fontSize: '0.9rem',
+              color: '#4c1d95'
+            }}>
+              <strong>Usuario:</strong> {usuarioActual.nombre} {usuarioActual.apellido} | 
+              <strong> Colmenas monitoreadas:</strong> {colmenasUsuario.length}
+              {loadingAlertas && <span> | ⏳ Evaluando alertas...</span>}
+            </div>
+          )}
+
           {/* Estadísticas rápidas */}
           <div style={{
             display: 'grid',
@@ -513,11 +466,11 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
             marginBottom: isMobile ? '16px' : '20px'
           }}>
             {[
-              { label: 'Críticas', count: alertasActivas.filter(a => a.prioridad === 'CRÍTICA').length, color: '#dc2626' },
-              { label: 'Altas', count: alertasActivas.filter(a => a.prioridad === 'ALTA').length, color: '#ea580c' },
-              { label: 'Preventivas', count: alertasActivas.filter(a => a.prioridad === 'PREVENTIVA').length, color: '#f59e0b' },
-              { label: 'Medias', count: alertasActivas.filter(a => a.prioridad === 'MEDIA').length, color: '#3b82f6' },
-              { label: 'Informativas', count: alertasActivas.filter(a => a.prioridad === 'INFORMATIVA').length, color: '#10b981' }
+              { label: 'Críticas', count: alertasParaUI.filter(a => a.prioridad === 'CRÍTICA').length, color: '#dc2626' },
+              { label: 'Altas', count: alertasParaUI.filter(a => a.prioridad === 'ALTA').length, color: '#ea580c' },
+              { label: 'Preventivas', count: alertasParaUI.filter(a => a.prioridad === 'PREVENTIVA').length, color: '#f59e0b' },
+              { label: 'Medias', count: alertasParaUI.filter(a => a.prioridad === 'MEDIA').length, color: '#3b82f6' },
+              { label: 'Informativas', count: alertasParaUI.filter(a => a.prioridad === 'INFORMATIVA').length, color: '#10b981' }
             ].map((stat, index) => (
               <div key={index} style={{
                 background: 'white',
@@ -561,8 +514,8 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
               flexWrap: 'wrap'
             }}>
               {[
-                { key: 'activas', label: '🔴 Activas', count: alertasActivas.length },
-                { key: 'historial', label: '📋 Historial', count: historialAlertas.length }
+                { key: 'activas', label: '🔴 Activas', count: alertasParaUI.length },
+                { key: 'historial', label: '📋 Historial', count: historialParaUI.length }
               ].map(tab => (
                 <button
                   key={tab.key}
@@ -650,7 +603,32 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
           maxHeight: '60vh',
           overflowY: 'auto'
         }}>
-          {alertasFiltradas.length === 0 ? (
+          {loadingAlertas ? (
+            <div style={{
+              textAlign: 'center',
+              padding: '40px 20px',
+              background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+              borderRadius: '16px',
+              border: '2px dashed #0ea5e9'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '16px' }}>⏳</div>
+              <h3 style={{
+                fontSize: '1.25rem',
+                fontWeight: '700',
+                color: '#0c4a6e',
+                margin: '0 0 8px 0'
+              }}>
+                Evaluando alertas...
+              </h3>
+              <p style={{
+                color: '#075985',
+                margin: 0,
+                fontSize: '1rem'
+              }}>
+                Analizando datos de {colmenasUsuario.length} colmenas
+              </p>
+            </div>
+          ) : alertasFiltradas.length === 0 ? (
             <div style={{
               textAlign: 'center',
               padding: '40px 20px',
@@ -709,7 +687,8 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
                           display: 'flex',
                           alignItems: 'center',
                           gap: '8px',
-                          marginBottom: '4px'
+                          marginBottom: '4px',
+                          flexWrap: 'wrap'
                         }}>
                           <span style={{ fontSize: '1.5rem' }}>{colorConfig.icon}</span>
                           <h4 style={{
@@ -730,6 +709,30 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
                           }}>
                             {alerta.prioridad}
                           </span>
+                          {alerta.colmena_nombre && (
+                            <span style={{
+                              background: '#6366f1',
+                              color: 'white',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontSize: '0.7rem',
+                              fontWeight: '600'
+                            }}>
+                              🏠 {alerta.colmena_nombre}
+                            </span>
+                          )}
+                          {alerta.nodo_nombre && alerta.es_historial && (
+                            <span style={{
+                              background: '#10b981',
+                              color: 'white',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontSize: '0.7rem',
+                              fontWeight: '600'
+                            }}>
+                              📡 {alerta.nodo_nombre}
+                            </span>
+                          )}
                         </div>
                         <p style={{
                           margin: '0 0 8px 0',
@@ -757,7 +760,7 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
                           fontSize: '0.8rem',
                           color: '#6b7280'
                         }}>
-                          {alerta.fecha.toLocaleString()}
+                          {alerta.fecha?.toLocaleString ? alerta.fecha.toLocaleString() : 'Fecha no disponible'}
                         </div>
                       </div>
                     </div>
@@ -786,14 +789,14 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
                         <div>
                           <strong style={{ color: colorConfig.text, fontSize: '0.8rem' }}>Diferencia:</strong>
                           <div style={{ fontSize: '0.9rem', color: '#374151' }}>
-                            {alerta.tipo === 'peso' ? `${alerta.diferencia}g` : `${alerta.diferencia.toFixed(1)}°`}
+                            {alerta.tipo === 'peso' ? `${alerta.diferencia}g` : `${Number(alerta.diferencia).toFixed(1)}°`}
                           </div>
                         </div>
                       )}
                       {alerta.incremento && (
                         <div>
                           <strong style={{ color: colorConfig.text, fontSize: '0.8rem' }}>Incremento:</strong>
-                          <div style={{ fontSize: '0.9rem', color: '#374151' }}>+{alerta.incremento.toFixed(1)}kg</div>
+                          <div style={{ fontSize: '0.9rem', color: '#374151' }}>+{Number(alerta.incremento).toFixed(1)}kg</div>
                         </div>
                       )}
                     </div>
@@ -816,7 +819,7 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
                         paddingLeft: '20px',
                         color: '#374151'
                       }}>
-                        {alerta.acciones.map((accion, actionIndex) => (
+                        {alerta.acciones?.map((accion, actionIndex) => (
                           <li key={actionIndex} style={{
                             fontSize: '0.85rem',
                             marginBottom: '4px',
@@ -824,7 +827,15 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
                           }}>
                             {accion}
                           </li>
-                        ))}
+                        )) || (
+                          <li style={{
+                            fontSize: '0.85rem',
+                            marginBottom: '4px',
+                            lineHeight: '1.4'
+                          }}>
+                            Revisar condiciones y contactar especialista si es necesario
+                          </li>
+                        )}
                       </ul>
                     </div>
                   </div>
@@ -844,12 +855,29 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
           textAlign: 'center'
         }}>
           <div style={{ marginBottom: '4px' }}>
-            <strong>Período Estacional Actual:</strong> {getPerioodoEstacional().esInvernada ? '❄️ Invernada (Marzo-Julio)' : '🌞 Primavera-Verano (Agosto-Febrero)'}
+            <strong>Período Estacional Actual:</strong> {(() => {
+              const mes = new Date().getMonth() + 1;
+              const esInvernada = mes >= 3 && mes <= 7;
+              return esInvernada ? '❄️ Invernada (Marzo-Julio)' : '🌞 Primavera-Verano (Agosto-Febrero)';
+            })()}
           </div>
           <div>
-            Evaluación basada en {filteredData.length} registros de sensores | 
+            Evaluación basada en {alertasDefinidas.length} tipos de alertas | 
+            Colmenas monitoreadas: {colmenasUsuario.length} | 
             Sistema actualizado: {new Date().toLocaleString()}
           </div>
+          {error && (
+            <div style={{
+              marginTop: '8px',
+              padding: '8px',
+              background: '#fee2e2',
+              borderRadius: '4px',
+              color: '#dc2626',
+              fontSize: '0.8rem'
+            }}>
+              ⚠️ {error}
+            </div>
+          )}
         </div>
       </div>
     </div>

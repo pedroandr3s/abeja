@@ -11,26 +11,22 @@ export const useApi = () => {
   return context;
 };
 
-// Configuración dinámica de la URL base
+// ✅ CONFIGURACIÓN PARA SERVIDOR LOCAL UNIFICADO
 const getBaseURL = () => {
   // Si hay una variable de entorno definida, úsala
   if (process.env.REACT_APP_API_URL) {
     return process.env.REACT_APP_API_URL;
   }
   
-  // En desarrollo, usa backend local
-  if (process.env.NODE_ENV === 'development') {
-    return 'http://localhost:8080/api';
-  }
-  
-  // ✅ Railway funcionando - URL corregida
-  return 'https://backend-production-20f9.up.railway.app/api';
+  // ✅ NUEVO: Conectar directamente al servidor local en el mismo proyecto
+  // El backend estará corriendo en el puerto 8080 mientras React en 3000
+  return 'http://localhost:8080/api';
 };
 
 // Configuración de axios para conectar al backend
 const api = axios.create({
   baseURL: getBaseURL(),
-  timeout: 30000, // ✅ Aumentado timeout a 30 segundos
+  timeout: 15000, // ✅ Timeout reducido para conexión local
   headers: {
     'Content-Type': 'application/json',
   },
@@ -88,16 +84,17 @@ export const ApiProvider = ({ children }) => {
   // Mostrar la URL que se está usando
   useEffect(() => {
     console.log('🌐 Base URL configurada:', getBaseURL());
+    console.log('🔗 Conectando al servidor local unificado...');
   }, []);
 
   // Probar conexión al cargar
   useEffect(() => {
     testConnection();
     
-    // Verificar conexión cada 30 segundos
+    // ✅ Verificar conexión cada 10 segundos (más frecuente para desarrollo local)
     const interval = setInterval(() => {
       testConnectionSilent();
-    }, 30000);
+    }, 10000);
 
     return () => clearInterval(interval);
   }, []);
@@ -108,13 +105,20 @@ export const ApiProvider = ({ children }) => {
       const response = await api.get('/health');
       setIsConnected(true);
       setError(null);
-      console.log('🟢 Conexión establecida:', response.data.message);
+      console.log('🟢 Conexión establecida con servidor local:', response.data.message);
       return response.data;
     } catch (err) {
       setIsConnected(false);
-      const errorMessage = err.response?.data?.message || err.message || 'Error de conexión con el servidor';
+      let errorMessage = 'Error de conexión con el servidor local';
+      
+      if (err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED') {
+        errorMessage = 'Backend no está ejecutándose. Asegúrate de correr: npm run backend:app';
+      } else {
+        errorMessage = err.response?.data?.message || err.message || errorMessage;
+      }
+      
       setError(errorMessage);
-      console.error('🔴 Error de conexión:', errorMessage);
+      console.error('🔴 Error de conexión local:', errorMessage);
       console.error('🔴 URL que falló:', err.config?.url);
       throw err;
     } finally {
@@ -129,7 +133,11 @@ export const ApiProvider = ({ children }) => {
       setError(null);
     } catch (err) {
       setIsConnected(false);
-      setError('Conexión perdida');
+      if (err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED') {
+        setError('Backend local no disponible');
+      } else {
+        setError('Conexión perdida');
+      }
     }
   };
 
@@ -164,7 +172,7 @@ export const ApiProvider = ({ children }) => {
       
       if (err.code === 'ECONNREFUSED' || err.code === 'ERR_NETWORK') {
         setIsConnected(false);
-        setError('No se puede conectar al servidor backend');
+        setError('No se puede conectar al servidor backend local');
       } else {
         setError(errorMessage);
       }
@@ -189,7 +197,7 @@ export const ApiProvider = ({ children }) => {
     // ✅ LOGIN CORREGIDO - Ahora en /usuarios/login
     login: async (credentials) => {
       try {
-        console.log('🔐 Intentando login con:', { 
+        console.log('🔐 Intentando login con servidor local:', { 
           email: credentials.email ? 'presente' : 'ausente',
           nombre: credentials.nombre ? 'presente' : 'ausente', 
           apellido: credentials.apellido ? 'presente' : 'ausente',
@@ -203,7 +211,7 @@ export const ApiProvider = ({ children }) => {
           localStorage.setItem('smartbee_token', response.data.data.token);
           localStorage.setItem('smartbee_user', JSON.stringify(response.data.data.usuario));
           
-          console.log('✅ Login exitoso:', response.data.data.usuario);
+          console.log('✅ Login exitoso con servidor local:', response.data.data.usuario);
           setIsConnected(true);
           setError(null);
           
@@ -212,7 +220,7 @@ export const ApiProvider = ({ children }) => {
         
         throw new Error('Respuesta de login inválida');
       } catch (error) {
-        console.error('❌ Error en login:', error);
+        console.error('❌ Error en login con servidor local:', error);
         
         // Manejo específico de errores de login
         if (error.response?.status === 401) {
@@ -221,7 +229,7 @@ export const ApiProvider = ({ children }) => {
           throw new Error(error.response.data?.error || 'Datos de login incorrectos');
         } else if (error.code === 'ERR_NETWORK') {
           setIsConnected(false);
-          throw new Error('No se puede conectar al servidor');
+          throw new Error('No se puede conectar al servidor local. ¿Está corriendo el backend?');
         }
         
         throw error;
@@ -407,17 +415,6 @@ export const ApiProvider = ({ children }) => {
   };
 
   // =============================================
-  // MÉTODOS PARA SELECTS (COMPATIBILIDAD)
-  // =============================================
-  const selects = {
-    usuarios: () => apiRequest('get', '/select/usuarios', null, false),
-    roles: () => apiRequest('get', '/select/roles', null, false),
-    colmenas: () => apiRequest('get', '/select/colmenas', null, false),
-    nodos: () => apiRequest('get', '/select/nodos', null, false),
-    nodoTipos: () => apiRequest('get', '/select/nodo-tipos', null, false),
-  };
-
-  // =============================================
   // MÉTODOS PARA REPORTES
   // =============================================
   const reportes = {
@@ -428,6 +425,109 @@ export const ApiProvider = ({ children }) => {
     actividad: (colmenaId, fechaInicio, fechaFin) => 
       apiRequest('get', `/reportes/actividad/${colmenaId}?inicio=${fechaInicio}&fin=${fechaFin}`),
     resumen: (colmenaId) => apiRequest('get', `/reportes/resumen/${colmenaId}`),
+  };
+
+  // =============================================
+  // MÉTODOS PARA ALERTAS ✅ NUEVOS
+  // =============================================
+  const alertas = {
+    // Obtener todas las alertas definidas
+    getAll: () => apiRequest('get', '/alertas'),
+    
+    // Obtener alerta por ID
+    getById: (id) => apiRequest('get', `/alertas/${id}`),
+    
+    // Evaluar alertas para una colmena específica
+    evaluar: (colmenaId, hours = 168) => apiRequest('get', `/alertas/evaluar/${colmenaId}?hours=${hours}`),
+    
+    // Registrar nueva alerta manualmente
+    registrar: (data) => apiRequest('post', '/alertas/registrar', data),
+    
+    // Obtener historial de alertas por colmena
+    getHistorial: (colmenaId, limit = 50, hours = 720) => apiRequest('get', `/alertas/historial/${colmenaId}?limit=${limit}&hours=${hours}`),
+    
+    // Obtener alertas activas por usuario
+    getByUsuario: (usuarioId, hours = 24) => apiRequest('get', `/alertas/usuario/${usuarioId}?hours=${hours}`),
+    
+    // Obtener estadísticas de alertas por colmena
+    getEstadisticas: (colmenaId, days = 30) => apiRequest('get', `/alertas/estadisticas/${colmenaId}?days=${days}`),
+    
+    // Método helper para evaluar alertas del usuario actual
+    evaluarParaUsuario: async (hours = 168) => {
+      try {
+        const userData = localStorage.getItem('smartbee_user');
+        if (!userData) {
+          throw new Error('Usuario no autenticado');
+        }
+        
+        const user = JSON.parse(userData);
+        
+        // Obtener alertas directamente por usuario
+        const alertasResponse = await apiRequest('get', `/alertas/usuario/${user.id}?hours=${hours}`);
+        const alertasUsuario = alertasResponse.data || [];
+        
+        // Obtener colmenas del usuario
+        const colmenasResponse = await apiRequest('get', `/colmenas/dueno/${user.id}`);
+        const colmenas = colmenasResponse.data || [];
+        
+        // Evaluar alertas para cada colmena
+        const alertasPorColmena = [];
+        
+        for (const colmena of colmenas) {
+          try {
+            const alertasResponse = await apiRequest('get', `/alertas/evaluar/${colmena.id}?hours=${hours}`);
+            if (alertasResponse.data && alertasResponse.data.alertas_activadas.length > 0) {
+              alertasPorColmena.push({
+                colmena: colmena,
+                alertas: alertasResponse.data.alertas_activadas
+              });
+            }
+          } catch (colmenaError) {
+            console.warn(`Error evaluando alertas para colmena ${colmena.id}:`, colmenaError);
+          }
+        }
+        
+        return {
+          success: true,
+          data: {
+            alertas_usuario: alertasUsuario,
+            alertas_por_colmena: alertasPorColmena,
+            total_colmenas: colmenas.length,
+            colmenas_con_alertas: alertasPorColmena.length
+          }
+        };
+      } catch (error) {
+        console.error('Error evaluando alertas para usuario:', error);
+        throw error;
+      }
+    },
+    
+    // Método helper para obtener alertas recientes del usuario
+    getAlertasRecientes: async (hours = 24) => {
+      try {
+        const userData = localStorage.getItem('smartbee_user');
+        if (!userData) {
+          throw new Error('Usuario no autenticado');
+        }
+        
+        const user = JSON.parse(userData);
+        return await apiRequest('get', `/alertas/usuario/${user.id}?hours=${hours}`);
+      } catch (error) {
+        console.error('Error obteniendo alertas recientes:', error);
+        throw error;
+      }
+    }
+  };
+
+  // =============================================
+  // MÉTODOS PARA SELECTS (COMPATIBILIDAD)
+  // =============================================
+  const selects = {
+    usuarios: () => apiRequest('get', '/select/usuarios', null, false),
+    roles: () => apiRequest('get', '/select/roles', null, false),
+    colmenas: () => apiRequest('get', '/select/colmenas', null, false),
+    nodos: () => apiRequest('get', '/select/nodos', null, false),
+    nodoTipos: () => apiRequest('get', '/select/nodo-tipos', null, false),
   };
 
   // =============================================
@@ -469,6 +569,7 @@ export const ApiProvider = ({ children }) => {
     dashboard,
     estaciones,
     reportes,
+    alertas, // ✅ NUEVO: Métodos de alertas
     selects,
     
     // ✅ NUEVO: Métodos de diagnóstico
