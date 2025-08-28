@@ -31,15 +31,8 @@ const Login = ({ onLoginSuccess }) => {
   const [loginStep, setLoginStep] = useState('credentials'); // 'credentials', 'role-info', 'redirecting'
   const [userInfo, setUserInfo] = useState(null);
   
-  // Usar el ApiContext de forma segura
-  let apiContext = null;
-  try {
-    apiContext = useApi();
-  } catch (error) {
-    console.warn('ApiContext no disponible en Login:', error.message);
-  }
-
-  const { usuarios, isConnected, loading } = apiContext || {};
+  // Usar el ApiContext
+  const { usuarios, isConnected, loading } = useApi();
 
   // Verificar conexión al cargar el componente
   useEffect(() => {
@@ -47,11 +40,10 @@ const Login = ({ onLoginSuccess }) => {
       try {
         setConnectionStatus('checking');
         
-        // Intentar conectar directamente si no hay ApiContext
-        const baseUrl = process.env.NODE_ENV === 'development' 
-           'http://localhost:8080';
+        // Intentar conectar directamente
+        const baseUrl = 'http://localhost:8080/api';
           
-        const response = await fetch(`${baseUrl}/api/health`);
+        const response = await fetch(`${baseUrl}/health`);
         
         if (response.ok) {
           setConnectionStatus('connected');
@@ -67,13 +59,13 @@ const Login = ({ onLoginSuccess }) => {
     };
 
     // Si tenemos ApiContext, usar su estado de conexión
-    if (apiContext && typeof isConnected !== 'undefined') {
+    if (typeof isConnected !== 'undefined') {
       setConnectionStatus(isConnected ? 'connected' : 'disconnected');
     } else {
       // Si no, verificar conexión manualmente
       checkConnection();
     }
-  }, [apiContext, isConnected]);
+  }, [isConnected]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -140,10 +132,9 @@ const Login = ({ onLoginSuccess }) => {
       } else {
         // Fallback: petición directa
         console.log('📡 Usando fetch directo para login');
-        const baseUrl = process.env.NODE_ENV === 'development' 
-          'http://localhost:8080' ;
+        const baseUrl = 'http://localhost:8080/api';
           
-        const response = await fetch(`${baseUrl}/api/usuarios/login`, {
+        const response = await fetch(`${baseUrl}/usuarios/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -494,8 +485,8 @@ const Login = ({ onLoginSuccess }) => {
             <div className="login-footer">
               <p className="login-footer-text">
                 <strong>Para ingresar:</strong><br/>
-                Ingrese su usuario (nombre completo) tal como está registrado<br/>
-                en el sistema junto con su contraseña personal
+                Ingrese su nombre completo (nombre y apellido) separado por espacio<br/>
+                ejemplo: "Juan Pérez" junto con su contraseña
               </p>
             </div>
           </div>
