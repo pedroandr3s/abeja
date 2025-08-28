@@ -9,8 +9,6 @@ Estos datos se transmiten de forma inalámbrica a la nube, donde son procesados 
 
 El objetivo de SmartBee es facilitar una apicultura más eficiente, sostenible y basada en datos, reduciendo las visitas innecesarias al apiario, mejorando la productividad y contribuyendo a la conservación de las abejas.
 📦 Instalación y ejecución del proyecto
-Backend
-
 
 ## 🚀 1. Requisitos previos
 
@@ -22,77 +20,22 @@ Antes de comenzar asegúrate de tener instalado:
 - Arduino IDE (para la programación de microcontroladores)
 - Git (para clonar el repositorio)
 
----
 
-## ⚙️ 2. Backend (API con Node.js + Express)
-
-### 📥 Instalación de dependencias
-
-Dentro de la carpeta del backend, ejecuta:
-
-```
-	npm install bcryptjs@^2.4.3
-	npm install cors@^2.8.5
-	npm install dotenv@^16.6.1
-	npm install express@^4.21.2
-	npm install express-rate-limit@^6.11.2
-	npm install helmet@^7.2.0
-	npm install jsonwebtoken@^9.0.2
-	npm install mysql2@^3.14.1
-	npm install --save-dev nodemon@^3.1.10
-```
-
-### ▶️ Ejecución del servidor
-
-```
-	node server.js
-```
-
-Si prefieres desarrollo con autoreload:
-
-```
-	npx nodemon server.js
-```
-
----
 
 ## 🎨 3. Frontend (React + Tailwind + Chart.js)
 
 ### 📥 Instalación de dependencias
 
-Dentro de la carpeta del frontend, ejecuta:
+Dentro de la carpeta Aplicacion, ejecuta:
 
 ```
 	npm install
-	npm install @fortawesome/free-solid-svg-icons@^6.7.2
-	npm install @fortawesome/react-fontawesome@^0.2.2
-	npm install @testing-library/dom@^10.4.0
-	npm install @testing-library/jest-dom@^6.6.3
-	npm install @testing-library/react@^16.3.0
-	npm install @testing-library/user-event@^13.5.0
-	npm install axios@^1.10.0
-	npm install chart.js@^4.5.0
-	npm install lucide-react@^0.525.0
-	npm install react@^19.1.0
-	npm install react-chartjs-2@^5.3.0
-	npm install react-dom@^19.1.0
-	npm install react-router-dom@^7.7.1
-	npm install react-scripts@5.0.1
-	npm install web-vitals@^2.1.4
-```
-
-Dependencias de desarrollo:
 
 ```
-	npm install --save-dev @eslint/compat@^1.3.1
-	npm install --save-dev @tailwindcss/postcss@^4.1.11
-	npm install --save-dev autoprefixer@^10.4.21
-	npm install --save-dev postcss@^8.5.6
-	npm install --save-dev react-app-rewired@^2.2.1
-	npm install --save-dev tailwindcss@^4.1.11
-```
 
-### ▶️ Ejecución del frontend
+
+
+### ▶️ Ejecución de Aplicacion
 
 ```
 	npm start
@@ -110,12 +53,10 @@ Dentro de la carpeta `Store_And_Alert`, ejecuta:
 
 ```
 	npm install
-	npm install mqtt@^5.13.1
-	npm install mysql2@^3.14.1
-	npm install uuid@^11.1.0
+	
 ```
 
-### ▶️ Ejecución
+### ▶️ Ejecución de prueba (Despues puede volver al Store original)
 
 ```
 	node Store_and_Alert.js
@@ -157,5 +98,4 @@ Para el apartado de los **sensores de peso** es necesario realizar una **calibra
 ![IMG_1187](https://github.com/user-attachments/assets/a03a2196-50f8-4fcf-a96e-681a2edbbd22)
 
 ![IMG_1196](https://github.com/user-attachments/assets/5b05ef5b-07a6-42a6-ba7e-44e9575b4cec)
-
 

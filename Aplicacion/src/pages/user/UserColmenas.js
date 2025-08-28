@@ -14,7 +14,7 @@ const UnifiedDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(false);
 
-  const API_BASE = 'backend-production-20f9.up.railway.app';
+  const API_BASE = 'localhost:8080';
 
   useEffect(() => {
     checkAuthentication();

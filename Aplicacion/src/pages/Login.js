@@ -15,15 +15,14 @@ const ROLE_CONFIG = {
     name: 'Apicultor',
     defaultRoute: '/user-dashboard',
     description: 'Gestión de colmenas propias',
-    features: ['Mis colmenas', 'Dashboard personal', 'Reportes de mis colmenas', 'Gestión de perfil'] // ✅ AGREGAR ESTA LÍNEA
+    features: ['Mis colmenas', 'Dashboard personal', 'Reportes de mis colmenas', 'Gestión de perfil']
   }
 };
 
 const Login = ({ onLoginSuccess }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    nombre: '',
-    apellido: '',
+    usuario: '',
     password: ''
   });
   const [error, setError] = useState('');
@@ -50,8 +49,7 @@ const Login = ({ onLoginSuccess }) => {
         
         // Intentar conectar directamente si no hay ApiContext
         const baseUrl = process.env.NODE_ENV === 'development' 
-          ? 'http://localhost:8080' 
-          : 'https://backend-production-20f9.up.railway.app/api';
+           'http://localhost:8080';
           
         const response = await fetch(`${baseUrl}/api/health`);
         
@@ -94,8 +92,15 @@ const Login = ({ onLoginSuccess }) => {
       return;
     }
     
-    if (!formData.nombre.trim() || !formData.apellido.trim() || !formData.password.trim()) {
-      setError('Nombre, apellido y contraseña son requeridos');
+    if (!formData.usuario.trim() || !formData.password.trim()) {
+      setError('Usuario y contraseña son requeridos');
+      return;
+    }
+
+    // Validar que el usuario tenga al menos un nombre
+    const nombreCompleto = formData.usuario.trim();
+    if (!nombreCompleto.includes(' ')) {
+      setError('Por favor ingrese su nombre completo (nombre y apellido)');
       return;
     }
 
@@ -103,16 +108,30 @@ const Login = ({ onLoginSuccess }) => {
     setError('');
 
     try {
-      console.log('🔐 Intentando login con nombre y apellido...');
+      console.log('🔐 Intentando login con usuario y contraseña...');
       
       let result;
       
-      // Preparar los datos de login
+      // Preparar los datos de login - separar el usuario en nombre y apellido
+      const nombreCompleto = formData.usuario.trim();
+      const partesNombre = nombreCompleto.split(' ');
+      
+      // Si solo hay una palabra, usar como nombre y apellido vacío
+      // Si hay múltiples, tomar la primera como nombre y el resto como apellido
+      const nombre = partesNombre[0] || '';
+      const apellido = partesNombre.slice(1).join(' ') || '';
+      
       const loginData = {
-        nombre: formData.nombre.trim(),
-        apellido: formData.apellido.trim(),
+        nombre: nombre,
+        apellido: apellido,
         password: formData.password
       };
+      
+      console.log('📤 Enviando datos de login:', { 
+        nombre: loginData.nombre, 
+        apellido: loginData.apellido, 
+        password: '***' 
+      });
       
       // Intentar usar ApiContext primero
       if (usuarios && usuarios.login) {
@@ -122,8 +141,7 @@ const Login = ({ onLoginSuccess }) => {
         // Fallback: petición directa
         console.log('📡 Usando fetch directo para login');
         const baseUrl = process.env.NODE_ENV === 'development' 
-          ? 'http://localhost:8080' 
-          : 'https://backend-production-20f9.up.railway.app/api';
+          'http://localhost:8080' ;
           
         const response = await fetch(`${baseUrl}/api/usuarios/login`, {
           method: 'POST',
@@ -143,28 +161,28 @@ const Login = ({ onLoginSuccess }) => {
 
       // Manejar respuesta exitosa
       if (result.data && result.data.usuario) {
-        const usuario = result.data.usuario;
-        const roleConfig = ROLE_CONFIG[usuario.rol];
+        const usuarioData = result.data.usuario;
+        const roleConfig = ROLE_CONFIG[usuarioData.rol];
         
-        console.log('✅ Login exitoso:', usuario);
-        console.log('🎭 Rol detectado:', usuario.rol, '-', roleConfig?.name || 'Desconocido');
+        console.log('✅ Login exitoso:', usuarioData);
+        console.log('🎭 Rol detectado:', usuarioData.rol, '-', roleConfig?.name || 'Desconocido');
         
         // Verificar que el rol sea válido
         if (!roleConfig) {
-          throw new Error(`Rol no válido: ${usuario.rol}. Contacte al administrador.`);
+          throw new Error(`Rol no válido: ${usuarioData.rol}. Contacte al administrador.`);
         }
         
         // Guardar tokens
         localStorage.setItem('smartbee_token', result.data.token);
-        localStorage.setItem('smartbee_user', JSON.stringify(usuario));
+        localStorage.setItem('smartbee_user', JSON.stringify(usuarioData));
         
         // Mostrar información del rol antes de redirigir
-        setUserInfo({ usuario, roleConfig });
+        setUserInfo({ usuario: usuarioData, roleConfig });
         setLoginStep('role-info');
         
         // Auto-redirigir después de 3 segundos o cuando el usuario haga clic
         setTimeout(() => {
-          finalizeLogin(usuario, roleConfig);
+          finalizeLogin(usuarioData, roleConfig);
         }, 3000);
         
       } else {
@@ -179,10 +197,10 @@ const Login = ({ onLoginSuccess }) => {
       if (error.response) {
         switch (error.response.status) {
           case 401:
-            errorMessage = 'Credenciales incorrectas. Verifique su nombre, apellido y contraseña.';
+            errorMessage = 'Credenciales incorrectas. Verifique su usuario y contraseña.';
             break;
           case 404:
-            errorMessage = 'Servicio de login no disponible. Contacte al administrador.';
+            errorMessage = 'Usuario no encontrado. Verifique que su usuario esté correcto.';
             break;
           case 500:
             errorMessage = 'Error interno del servidor. Intente más tarde.';
@@ -191,9 +209,9 @@ const Login = ({ onLoginSuccess }) => {
             errorMessage = error.response.data?.error || 'Error del servidor';
         }
       } else if (error.message.includes('401')) {
-        errorMessage = 'Credenciales incorrectas. Verifique su nombre, apellido y contraseña.';
+        errorMessage = 'Credenciales incorrectas. Verifique su usuario y contraseña.';
       } else if (error.message.includes('404')) {
-        errorMessage = 'Servicio de login no disponible. Contacte al administrador.';
+        errorMessage = 'Usuario no encontrado. Verifique que su usuario esté registrado.';
       } else if (error.message.includes('500')) {
         errorMessage = 'Error interno del servidor. Intente más tarde.';
       } else if (error.message.includes('Network Error') || error.message.includes('Failed to fetch')) {
@@ -268,7 +286,9 @@ const Login = ({ onLoginSuccess }) => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Bienvenido, {usuario.nombre} {usuario.apellido}!</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  ¡Bienvenido, {usuario.nombre} {usuario.apellido}!
+                </h2>
                 <p className="text-gray-600">Login exitoso como <strong>{roleConfig.name}</strong></p>
                 {usuario.comuna && (
                   <p className="text-sm text-gray-500">Ubicación: {usuario.comuna}</p>
@@ -278,6 +298,12 @@ const Login = ({ onLoginSuccess }) => {
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <h3 className="font-semibold text-gray-800 mb-2">Tu perfil de acceso:</h3>
                 <div className="space-y-2">
+                  <div className="flex items-center text-sm text-gray-600">
+                    <span className="font-medium mr-2">Usuario:</span>
+                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                      {usuario.nombre} {usuario.apellido}
+                    </span>
+                  </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <span className="font-medium mr-2">Rol:</span>
                     <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
@@ -363,7 +389,7 @@ const Login = ({ onLoginSuccess }) => {
           <div className="login-form-container">
             <div className="login-header">
               <h2 className="login-welcome-title">Bienvenido</h2>
-              <p className="login-welcome-subtitle">Ingresa tu nombre, apellido y contraseña</p>
+              <p className="login-welcome-subtitle">Ingresa tu usuario y contraseña</p>
             </div>
 
             {/* Estado de conexión */}
@@ -405,36 +431,19 @@ const Login = ({ onLoginSuccess }) => {
 
             <form onSubmit={handleSubmit} className="login-form">
               <div className="login-form-group">
-                <label htmlFor="nombre" className="login-form-label">
-                  Nombre
+                <label htmlFor="usuario" className="login-form-label">
+                  Usuario
                 </label>
                 <input
                   type="text"
-                  id="nombre"
-                  name="nombre"
-                  value={formData.nombre}
+                  id="usuario"
+                  name="usuario"
+                  value={formData.usuario}
                   onChange={handleInputChange}
                   className="login-form-input"
-                  placeholder="Ingresa tu nombre"
+                  placeholder="Ej: Juan Pérez"
                   disabled={isLogging || connectionStatus !== 'connected'}
-                  autoComplete="given-name"
-                />
-              </div>
-
-              <div className="login-form-group">
-                <label htmlFor="apellido" className="login-form-label">
-                  Apellido
-                </label>
-                <input
-                  type="text"
-                  id="apellido"
-                  name="apellido"
-                  value={formData.apellido}
-                  onChange={handleInputChange}
-                  className="login-form-input"
-                  placeholder="Ingresa tu apellido"
-                  disabled={isLogging || connectionStatus !== 'connected'}
-                  autoComplete="family-name"
+                  autoComplete="username"
                 />
               </div>
 
@@ -484,10 +493,9 @@ const Login = ({ onLoginSuccess }) => {
 
             <div className="login-footer">
               <p className="login-footer-text">
-                {/* Credenciales de prueba por rol */}
                 <strong>Para ingresar:</strong><br/>
-                Use su nombre y apellido registrados en el sistema<br/>
-                junto con su contraseña personal
+                Ingrese su usuario (nombre completo) tal como está registrado<br/>
+                en el sistema junto con su contraseña personal
               </p>
             </div>
           </div>

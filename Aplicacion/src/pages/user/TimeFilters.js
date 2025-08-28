@@ -296,44 +296,6 @@ const TimeFilters = ({
                 }}
               />
             </div>
-            
-            <button
-              onClick={() => {
-                const today = new Date();
-                const yesterday = new Date(today);
-                yesterday.setDate(today.getDate() - 1);
-                
-                const todayStr = today.toISOString().split('T')[0];
-                const yesterdayStr = yesterday.toISOString().split('T')[0];
-                
-                document.getElementById('customStartDate').value = yesterdayStr;
-                document.getElementById('customEndDate').value = todayStr;
-                
-                onCustomDateRange(yesterdayStr, todayStr);
-              }}
-              style={{
-                padding: '10px 16px',
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '0.9rem',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                whiteSpace: 'nowrap'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = 'translateY(-1px)';
-                e.target.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.4)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = 'none';
-              }}
-            >
-              Aplicar Filtro
-            </button>
           </div>
           
           {/* Información de agrupación automática */}
