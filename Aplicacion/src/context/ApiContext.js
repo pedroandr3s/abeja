@@ -604,7 +604,7 @@ export const ApiProvider = ({ children }) => {
       }
     },
     
-    // Limpiar datos de sesión
+    // Limpiar dats de sesión
     clearSession: () => {
       localStorage.removeItem('smartbee_token');
       localStorage.removeItem('smartbee_user');
