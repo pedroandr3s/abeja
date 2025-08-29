@@ -325,18 +325,6 @@ const Login = ({ onLoginSuccess }) => {
 
   const colors = getConnectionColor();
 
-  // Detectar dinámicamente el modo de login basado en la entrada del usuario
-  const currentMode = formData.usuario ? detectLoginMode(formData.usuario) : 'name';
-  
-  const getModeText = (mode) => {
-    switch (mode) {
-      case 'id': return 'ID numérico';
-      case 'username': return 'Usuario';
-      case 'name': return 'Nombre completo';
-      default: return 'Usuario';
-    }
-  };
-
   // Renderizar paso de información de rol
   if (loginStep === 'role-info' && userInfo) {
     const { usuario, roleConfig } = userInfo;
@@ -499,11 +487,6 @@ const Login = ({ onLoginSuccess }) => {
               <div className="login-form-group">
                 <label htmlFor="usuario" className="login-form-label">
                   Usuario
-                  {formData.usuario && (
-                    <span className="text-xs text-gray-500 ml-2">
-                      (Modo: {getModeText(currentMode)})
-                    </span>
-                  )}
                 </label>
                 <input
                   type="text"
@@ -512,11 +495,10 @@ const Login = ({ onLoginSuccess }) => {
                   value={formData.usuario}
                   onChange={handleInputChange}
                   className="login-form-input"
-                  
+                  placeholder="Ingresa tu usuario"
                   disabled={isLogging || connectionStatus !== 'connected'}
                   autoComplete="username"
                 />
-                
               </div>
 
               <div className="login-form-group">
@@ -562,8 +544,6 @@ const Login = ({ onLoginSuccess }) => {
                 ¿Olvidaste tu contraseña?
               </button>
             </div>
-
-           
           </div>
         </div>
       </div>
