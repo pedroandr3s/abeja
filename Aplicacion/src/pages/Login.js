@@ -97,15 +97,15 @@ const Login = ({ onLoginSuccess }) => {
     const trimmedUsuario = usuario.trim();
     
     if (detectedMode === 'id') {
-      // Login por ID numérico - el servidor lo espera como 'email'
+      // Login por ID numérico - el servidor lo espera como 'ID'
       return {
-        email: trimmedUsuario,
+        ID: trimmedUsuario,
         password: password
       };
     } else if (detectedMode === 'username') {
-      // Login por username/string - el servidor lo espera como 'email'
+      // Login por username/string - el servidor lo espera como 'ID'
       return {
-        email: trimmedUsuario,
+        ID: trimmedUsuario,
         password: password
       };
     } else {

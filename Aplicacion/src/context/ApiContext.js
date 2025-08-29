@@ -198,7 +198,7 @@ export const ApiProvider = ({ children }) => {
     login: async (credentials) => {
       try {
         console.log('🔐 Intentando login con servidor local:', { 
-          email: credentials.email ? 'presente' : 'ausente',
+          ID: credentials.ID ? 'presente' : 'ausente',
           nombre: credentials.nombre ? 'presente' : 'ausente', 
           apellido: credentials.apellido ? 'presente' : 'ausente',
           password: credentials.password ? 'presente' : 'ausente'

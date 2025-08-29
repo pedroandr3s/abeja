@@ -10,7 +10,7 @@ const router = express.Router();
 router.post('/login', async (req, res) => {
     let connection;
     try {
-        const { email, password, nombre, apellido } = req.body || {};
+        const { ID, password, nombre, apellido } = req.body || {};
         console.log('🔐 Intento de login:', req.body);
 
         // Validaciones básicas
@@ -19,9 +19,9 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'La contraseña es requerida' });
         }
 
-        if ((!email || email.trim() === '') && (!nombre || !apellido)) {
+        if ((!ID || ID.trim() === '') && (!nombre || !apellido)) {
             console.log('❌ Faltan credenciales de identificación');
-            return res.status(400).json({ error: 'Se requiere email o nombre y apellido' });
+            return res.status(400).json({ error: 'Se requiere ID o nombre y apellido' });
         }
 
         // Conexión a BD
@@ -29,15 +29,15 @@ router.post('/login', async (req, res) => {
 
         let usuario = null;
 
-        // Buscar por email
-        if (email && email.trim()) {
+        // Buscar por ID
+        if (ID && ID.trim()) {
             const [rows] = await connection.execute(`
                 SELECT u.id, u.clave, u.nombre, u.apellido, u.comuna, u.rol, u.activo,
                        r.descripcion as rol_descripcion
                 FROM usuario u
                 LEFT JOIN rol r ON u.rol = r.rol
                 WHERE u.id = ? AND u.activo = 1
-            `, [email.trim()]);
+            `, [ID.trim()]);
 
             if (rows.length > 0) usuario = rows[0];
         }
@@ -98,7 +98,7 @@ router.post('/login', async (req, res) => {
                     id: usuario.id,
                     nombre: usuario.nombre,
                     apellido: usuario.apellido,
-                    email: usuario.id,
+                    ID: usuario.id,
                     comuna: usuario.comuna,
                     rol: usuario.rol,
                     rol_nombre: usuario.rol_descripcion || 'Usuario'
@@ -144,7 +144,7 @@ router.get('/', async (req, res) => {
             nombre: user.nombre,
             apellido: user.apellido,
             comuna: user.comuna,
-            email: user.id, // Compatibilidad
+            ID: user.id, // Compatibilidad
             telefono: '', // Campo requerido por frontend
             fecha_registro: new Date().toISOString(), // Campo requerido por frontend
             rol: user.rol,
@@ -197,7 +197,7 @@ router.get('/:id', async (req, res) => {
             nombre: usuario.nombre,
             apellido: usuario.apellido,
             comuna: usuario.comuna,
-            email: usuario.id,
+            ID: usuario.id,
             telefono: '',
             fecha_registro: new Date().toISOString(),
             rol: usuario.rol,
@@ -316,7 +316,7 @@ router.post('/', async (req, res) => {
                 nombre: nombre.trim(),
                 apellido: apellido.trim(),
                 comuna: comuna.trim(),
-                email: userId,
+                ID: userId,
                 telefono: '',
                 fecha_registro: new Date().toISOString(),
                 rol: rol.trim(),
@@ -447,7 +447,7 @@ router.put('/:id', async (req, res) => {
                 nombre: usuario.nombre,
                 apellido: usuario.apellido,
                 comuna: usuario.comuna,
-                email: usuario.id,
+                ID: usuario.id,
                 telefono: '',
                 fecha_registro: new Date().toISOString(),
                 rol: usuario.rol,
