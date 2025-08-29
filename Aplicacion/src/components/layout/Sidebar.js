@@ -176,10 +176,6 @@ const Sidebar = ({ currentUser, roleConfig, theme, isDarkMode, isMobileOpen, onM
                   <div className="status-indicator success" />
                   <span className="status-text">Sensores OK</span>
                 </div>
-                <div className="status-item">
-                  <div className="status-indicator warning" />
-                  <span className="status-text">2 Alertas</span>
-                </div>
               </div>
             </div>
           )}

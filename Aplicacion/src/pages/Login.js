@@ -30,6 +30,7 @@ const Login = ({ onLoginSuccess }) => {
   const [connectionStatus, setConnectionStatus] = useState('checking');
   const [loginStep, setLoginStep] = useState('credentials'); // 'credentials', 'role-info', 'redirecting'
   const [userInfo, setUserInfo] = useState(null);
+  const [loginMode, setLoginMode] = useState('name'); // 'name' o 'id'
   
   // Usar el ApiContext
   const { usuarios, isConnected, loading } = useApi();
@@ -76,6 +77,80 @@ const Login = ({ onLoginSuccess }) => {
     if (error) setError('');
   };
 
+  const detectLoginMode = (usuario) => {
+    const trimmedUsuario = usuario.trim();
+    
+    // Si el input es solo números, es ID numérico
+    if (/^\d+$/.test(trimmedUsuario)) {
+      return 'id';
+    }
+    // Si contiene espacio, es nombre y apellido
+    if (trimmedUsuario.includes(' ')) {
+      return 'name';
+    }
+    // Si es una sola palabra/string (como "root", "admin", etc.), es ID de texto
+    return 'username';
+  };
+
+  const prepareLoginData = (usuario, password) => {
+    const detectedMode = detectLoginMode(usuario);
+    const trimmedUsuario = usuario.trim();
+    
+    if (detectedMode === 'id') {
+      // Login por ID numérico - el servidor lo espera como 'email'
+      return {
+        email: trimmedUsuario,
+        password: password
+      };
+    } else if (detectedMode === 'username') {
+      // Login por username/string - el servidor lo espera como 'email'
+      return {
+        email: trimmedUsuario,
+        password: password
+      };
+    } else {
+      // Login por nombre y apellido
+      const nombreCompleto = trimmedUsuario;
+      const partesNombre = nombreCompleto.split(' ');
+      
+      const nombre = partesNombre[0] || '';
+      const apellido = partesNombre.slice(1).join(' ') || '';
+      
+      return {
+        nombre: nombre,
+        apellido: apellido,
+        password: password
+      };
+    }
+  };
+
+  const validateInput = (usuario) => {
+    const detectedMode = detectLoginMode(usuario);
+    const trimmedUsuario = usuario.trim();
+    
+    if (detectedMode === 'id') {
+      // Validar ID numérico: debe ser solo números
+      if (!/^\d+$/.test(trimmedUsuario)) {
+        return 'El ID numérico debe contener solo números';
+      }
+    } else if (detectedMode === 'username') {
+      // Validar username: debe tener al menos un carácter y no espacios
+      if (trimmedUsuario.length < 1) {
+        return 'El nombre de usuario no puede estar vacío';
+      }
+      if (trimmedUsuario.includes(' ')) {
+        return 'El nombre de usuario no debe contener espacios';
+      }
+    } else {
+      // Validar nombre completo: debe tener al menos nombre y apellido
+      if (!trimmedUsuario.includes(' ')) {
+        return 'Por favor ingrese su nombre completo (nombre y apellido), su ID numérico, o su nombre de usuario';
+      }
+    }
+    
+    return null;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -89,10 +164,10 @@ const Login = ({ onLoginSuccess }) => {
       return;
     }
 
-    // Validar que el usuario tenga al menos un nombre
-    const nombreCompleto = formData.usuario.trim();
-    if (!nombreCompleto.includes(' ')) {
-      setError('Por favor ingrese su nombre completo (nombre y apellido)');
+    // Validar entrada
+    const validationError = validateInput(formData.usuario);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -100,28 +175,16 @@ const Login = ({ onLoginSuccess }) => {
     setError('');
 
     try {
-      console.log('🔐 Intentando login con usuario y contraseña...');
+      console.log('🔐 Intentando login...');
       
       let result;
       
-      // Preparar los datos de login - separar el usuario en nombre y apellido
-      const nombreCompleto = formData.usuario.trim();
-      const partesNombre = nombreCompleto.split(' ');
+      // Preparar los datos de login según el modo detectado
+      const loginData = prepareLoginData(formData.usuario, formData.password);
+      const detectedMode = detectLoginMode(formData.usuario);
       
-      // Si solo hay una palabra, usar como nombre y apellido vacío
-      // Si hay múltiples, tomar la primera como nombre y el resto como apellido
-      const nombre = partesNombre[0] || '';
-      const apellido = partesNombre.slice(1).join(' ') || '';
-      
-      const loginData = {
-        nombre: nombre,
-        apellido: apellido,
-        password: formData.password
-      };
-      
-      console.log('📤 Enviando datos de login:', { 
-        nombre: loginData.nombre, 
-        apellido: loginData.apellido, 
+      console.log(`📤 Enviando datos de login (modo: ${detectedMode}):`, { 
+        ...loginData, 
         password: '***' 
       });
       
@@ -261,6 +324,18 @@ const Login = ({ onLoginSuccess }) => {
   };
 
   const colors = getConnectionColor();
+
+  // Detectar dinámicamente el modo de login basado en la entrada del usuario
+  const currentMode = formData.usuario ? detectLoginMode(formData.usuario) : 'name';
+  
+  const getModeText = (mode) => {
+    switch (mode) {
+      case 'id': return 'ID numérico';
+      case 'username': return 'Usuario';
+      case 'name': return 'Nombre completo';
+      default: return 'Usuario';
+    }
+  };
 
   // Renderizar paso de información de rol
   if (loginStep === 'role-info' && userInfo) {
@@ -424,6 +499,11 @@ const Login = ({ onLoginSuccess }) => {
               <div className="login-form-group">
                 <label htmlFor="usuario" className="login-form-label">
                   Usuario
+                  {formData.usuario && (
+                    <span className="text-xs text-gray-500 ml-2">
+                      (Modo: {getModeText(currentMode)})
+                    </span>
+                  )}
                 </label>
                 <input
                   type="text"
@@ -432,10 +512,11 @@ const Login = ({ onLoginSuccess }) => {
                   value={formData.usuario}
                   onChange={handleInputChange}
                   className="login-form-input"
-                  placeholder="Ej: Juan Pérez"
+                  
                   disabled={isLogging || connectionStatus !== 'connected'}
                   autoComplete="username"
                 />
+                
               </div>
 
               <div className="login-form-group">
@@ -482,13 +563,7 @@ const Login = ({ onLoginSuccess }) => {
               </button>
             </div>
 
-            <div className="login-footer">
-              <p className="login-footer-text">
-                <strong>Para ingresar:</strong><br/>
-                Ingrese su nombre completo (nombre y apellido) separado por espacio<br/>
-                ejemplo: "Juan Pérez" junto con su contraseña
-              </p>
-            </div>
+           
           </div>
         </div>
       </div>

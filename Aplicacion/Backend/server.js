@@ -19,7 +19,7 @@ const diagnosticRoutes = require('./routes/diagnostic');
 const adminRoutes = require('./routes/admin');
 const messageRoutes = require('./routes/messages');
 const stationRoutes = require('./routes/stations');
-const alertasRoutes = require('./routes/alertas'); // ✅ NUEVA RUTA
+const alertasRoutes = require('./routes/alertas');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -37,7 +37,7 @@ app.get('/api/health', (req, res) => {
     res.json({ 
         message: 'SmartBee API funcionando correctamente',
         timestamp: new Date().toISOString(),
-        database: 'Railway MySQL'
+        database: 'MySQL Local'
     });
 });
 
@@ -87,7 +87,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/mensajes', messageRoutes);
 app.use('/api/nodo-mensajes', messageRoutes);
 app.use('/api/estaciones', stationRoutes);
-app.use('/api/alertas', alertasRoutes); // ✅ NUEVA RUTA DE ALERTAS
+app.use('/api/alertas', alertasRoutes);
 
 // Rutas de compatibilidad
 app.get('/api/revisiones', (req, res) => {
@@ -143,15 +143,15 @@ app.use(notFoundHandler);
 // =============================================
 const startServer = async () => {
     try {
-        console.log('🔄 Probando conexión a Railway...');
+        console.log('🔄 Probando conexión a MySQL local...');
         const connection = await pool.getConnection();
-        console.log('✅ Conexión exitosa a Railway MySQL');
+        console.log('✅ Conexión exitosa a MySQL local (127.0.0.1:3306)');
         connection.release();
         
         app.listen(PORT, () => {
             console.log(`🚀 Servidor SmartBee ejecutándose en puerto ${PORT}`);
             console.log(`🌐 API disponible en: http://localhost:${PORT}/api`);
-            console.log(`🗄️  Base de datos: Railway MySQL`);
+            console.log(`🗄️  Base de datos: MySQL Local (127.0.0.1:3306)`);
             console.log(`📋 Endpoints disponibles:`);
             console.log(`   ✅ GET  /api/health`);
             console.log(`   ✅ POST /api/usuarios/login`);
@@ -159,12 +159,12 @@ const startServer = async () => {
             console.log(`   ✅ GET  /api/colmenas`);
             console.log(`   ✅ GET  /api/mensajes/recientes`);
             console.log(`   ✅ GET  /api/dashboard/stats`);
-            console.log(`   ✅ GET  /api/alertas/evaluar/:colmenaId`); // ✅ NUEVA RUTA
-            console.log(`   ✅ GET  /api/alertas/usuario/:usuarioId`); // ✅ NUEVA RUTA
+            console.log(`   ✅ GET  /api/alertas/evaluar/:colmenaId`);
+            console.log(`   ✅ GET  /api/alertas/usuario/:usuarioId`);
             console.log(`   ✅ GET  /api/debug/check-tables`);
         });
     } catch (error) {
-        console.error('❌ Error conectando a Railway:', error.message);
+        console.error('❌ Error conectando a MySQL local:', error.message);
         
         app.listen(PORT, () => {
             console.log(`🚀 Servidor SmartBee (modo desarrollo) en puerto ${PORT}`);
