@@ -19,6 +19,7 @@ const UserDashboard = () => {
   const { dashboard, mensajes, colmenas, usuarios, isConnected } = useApi();
   const [currentUser, setCurrentUser] = useState(null);
   const [userColmenas, setUserColmenas] = useState([]);
+  const [selectedColmenas, setSelectedColmenas] = useState([]); // NUEVO: Colmenas seleccionadas
   const [sensorData, setSensorData] = useState([]); // Datos sin procesar
   const [filteredData, setFilteredData] = useState([]); // Datos filtrados por tiempo
   const [aggregatedData, setAggregatedData] = useState([]); // Datos agrupados/promediados
@@ -90,12 +91,12 @@ const UserDashboard = () => {
     }
   }, [currentUser]);
 
-  // Aplicar filtro y agregación cuando cambien los datos o el filtro seleccionado
+  // NUEVO: Aplicar filtro de colmenas cuando cambien las seleccionadas
   useEffect(() => {
     if (sensorData.length > 0) {
-      applyTimeFilterAndAggregation();
+      applyColmenaFilterAndTimeAggregation();
     }
-  }, [sensorData, timeFilter, customDateRange]);
+  }, [sensorData, selectedColmenas, timeFilter, customDateRange]);
 
   // Auto-actualizar datos cada 10 segundos
   useEffect(() => {
@@ -107,6 +108,26 @@ const UserDashboard = () => {
       return () => clearInterval(interval);
     }
   }, [currentUser]);
+
+  // NUEVO: Manejar selección de colmenas
+  const handleColmenaSelectionChange = (colmenaId, isSelected) => {
+    setSelectedColmenas(prev => {
+      if (isSelected) {
+        return [...prev, colmenaId];
+      } else {
+        return prev.filter(id => id !== colmenaId);
+      }
+    });
+  };
+
+  // NUEVO: Seleccionar/deseleccionar todas las colmenas
+  const handleSelectAllColmenas = (selectAll) => {
+    if (selectAll) {
+      setSelectedColmenas(userColmenas.map(c => c.id));
+    } else {
+      setSelectedColmenas([]);
+    }
+  };
 
   const checkAuthentication = () => {
     try {
@@ -160,9 +181,13 @@ const UserDashboard = () => {
       try {
         const colmenasResponse = await colmenas.getByDueno(currentUser.id);
         console.log('✅ Colmenas del usuario cargadas:', colmenasResponse);
-        setUserColmenas(colmenasResponse.data || []);
+        const colmenasData = colmenasResponse.data || [];
+        setUserColmenas(colmenasData);
         
-        if (!colmenasResponse.data || colmenasResponse.data.length === 0) {
+        // NUEVO: Auto-seleccionar todas las colmenas al cargar
+        setSelectedColmenas(colmenasData.map(c => c.id));
+        
+        if (colmenasData.length === 0) {
           setAlertMessage({
             type: 'warning',
             message: 'No tienes colmenas registradas en el sistema.'
@@ -171,6 +196,7 @@ const UserDashboard = () => {
       } catch (error) {
         console.error('❌ Error cargando colmenas:', error);
         setUserColmenas([]);
+        setSelectedColmenas([]);
         setAlertMessage({
           type: 'error',
           message: 'Error cargando colmenas del usuario. Verifica la conexión.'
@@ -233,12 +259,14 @@ const UserDashboard = () => {
             }
             
             if (dashboardResponse && dashboardResponse.combinados && dashboardResponse.combinados.length > 0) {
-                // Procesar datos
+                // Procesar datos - MODIFICADO: Incluir colmena_id
                 const datosCompletos = dashboardResponse.combinados
                     .map(item => ({
                         ...item,
-                        fecha: ensureDate(item.fecha)
+                        fecha: ensureDate(item.fecha),
+                        colmena_id: item.colmena_id || item.nodo?.colmena_id // Asegurar que tenemos colmena_id
                     }))
+                    .filter(item => item.colmena_id) // Solo items con colmena_id válida
                     .sort((a, b) => a.fecha.getTime() - b.fecha.getTime());
                 
                 const newDataHash = JSON.stringify(datosCompletos.map(d => ({ id: d.id, fecha: d.fecha.getTime() })));
@@ -246,7 +274,8 @@ const UserDashboard = () => {
                 console.log('🔍 Datos procesados:', {
                     timestamp: new Date().toLocaleTimeString(),
                     totalRegistros: datosCompletos.length,
-                    nodosActivos: dashboardResponse.nodosActivosCount || 0
+                    nodosActivos: dashboardResponse.nodosActivosCount || 0,
+                    colmenasUnicas: [...new Set(datosCompletos.map(d => d.colmena_id))].length
                 });
                 
                 if (dataHash !== newDataHash) {
@@ -306,9 +335,12 @@ const UserDashboard = () => {
     }
   };
 
-  // NUEVA: Función para aplicar filtro de tiempo Y agregación
-  const applyTimeFilterAndAggregation = () => {
-    console.log(`🔍 Aplicando filtro y agregación: ${timeFilter}`);
+  // MODIFICADO: Nueva función que combina filtro de colmenas Y agregación por tiempo
+  const applyColmenaFilterAndTimeAggregation = () => {
+    console.log(`🔍 Aplicando filtro de colmenas y agregación: ${timeFilter}`, {
+      selectedColmenas,
+      totalData: sensorData.length
+    });
     
     if (!sensorData || sensorData.length === 0) {
       setFilteredData([]);
@@ -316,27 +348,36 @@ const UserDashboard = () => {
       return;
     }
 
-    let filtered = [...sensorData];
+    // PASO 1: Filtrar por colmenas seleccionadas
+    let dataByColmenas = sensorData;
+    if (selectedColmenas.length > 0) {
+      dataByColmenas = sensorData.filter(item => 
+        selectedColmenas.includes(item.colmena_id)
+      );
+      console.log(`🏠 Filtro colmenas: ${dataByColmenas.length} registros de ${selectedColmenas.length} colmenas seleccionadas`);
+    }
+
+    // PASO 2: Filtrar por tiempo
+    let filtered = [...dataByColmenas];
     const now = new Date();
     
-    // PASO 1: Filtrar por tiempo
     if (timeFilter !== 'personalizado') {
       const selectedFilter = timeFilters.find(f => f.key === timeFilter);
       if (selectedFilter) {
         const cutoffTime = new Date(now.getTime() - (selectedFilter.hours * 60 * 60 * 1000));
-        filtered = sensorData.filter(item => {
+        filtered = dataByColmenas.filter(item => {
           const itemDate = ensureDate(item.fecha);
           return itemDate >= cutoffTime;
         });
         
-        console.log(`📊 Filtro ${selectedFilter.label}: ${filtered.length} registros de ${sensorData.length} totales`);
+        console.log(`📊 Filtro ${selectedFilter.label}: ${filtered.length} registros de ${dataByColmenas.length} totales`);
       }
     } else if (customDateRange.start && customDateRange.end) {
       const startDate = new Date(customDateRange.start);
       const endDate = new Date(customDateRange.end);
       endDate.setHours(23, 59, 59, 999);
       
-      filtered = sensorData.filter(item => {
+      filtered = dataByColmenas.filter(item => {
         const itemDate = ensureDate(item.fecha);
         return itemDate >= startDate && itemDate <= endDate;
       });
@@ -348,13 +389,14 @@ const UserDashboard = () => {
     filtered.sort((a, b) => ensureDate(a.fecha).getTime() - ensureDate(b.fecha).getTime());
     setFilteredData(filtered);
 
-    // PASO 2: Aplicar agregación según el tipo de filtro
+    // PASO 3: Aplicar agregación según el tipo de filtro
     const aggregated = aggregateDataByTimeFilter(filtered, timeFilter, customDateRange);
     console.log(`📈 Datos agregados: ${aggregated.length} grupos`, {
       filterType: timeFilter,
       originalCount: filtered.length,
       aggregatedCount: aggregated.length,
-      aggregationType: aggregated[0]?.aggregationType || 'individual'
+      aggregationType: aggregated[0]?.aggregationType || 'individual',
+      selectedColmenas: selectedColmenas.length
     });
     
     setAggregatedData(aggregated);
@@ -382,7 +424,7 @@ const UserDashboard = () => {
   // Datos para pasar a los componentes (usar agregatedData si existe, sino filteredData)
   const dataForComponents = aggregatedData.length > 0 ? aggregatedData : filteredData;
 
-      return (
+  return (
     <div style={{ 
       padding: isMobile ? '16px' : '24px',
       maxWidth: '100%',
@@ -418,7 +460,7 @@ const UserDashboard = () => {
           }}>
             SmartBee Dashboard
           </h1>
-          {/* Indicador de tipo de agregación */}
+          {/* Indicador de tipo de agregación y colmenas */}
           <p style={{
             margin: '8px 0 0 0',
             fontSize: '0.9rem',
@@ -426,6 +468,19 @@ const UserDashboard = () => {
             fontWeight: '500'
           }}>
             {getAggregationInfo(timeFilter, dataForComponents, customDateRange)}
+            {selectedColmenas.length > 0 && (
+              <span style={{
+                marginLeft: '12px',
+                padding: '2px 8px',
+                backgroundColor: '#f3f4f6',
+                borderRadius: '12px',
+                fontSize: '0.75rem',
+                fontWeight: '600',
+                color: '#374151'
+              }}>
+                🏠 {selectedColmenas.length} colmena{selectedColmenas.length !== 1 ? 's' : ''}
+              </span>
+            )}
             {dataForComponents.length > 0 && dataForComponents[0]?.isAggregated && (
               <span style={{
                 marginLeft: '8px',
@@ -467,7 +522,7 @@ const UserDashboard = () => {
           </button>
           <AlertasButton 
             sensorData={sensorData}
-            filteredData={dataForComponents} // Pasar datos agregados para alertas
+            filteredData={dataForComponents}
           />
         </div>
       </div>
@@ -477,6 +532,140 @@ const UserDashboard = () => {
         <Loading />
       ) : (
         <>
+          {/* NUEVO: Selector de Colmenas */}
+          {userColmenas.length > 1 && (
+            <div style={{
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+              padding: '24px',
+              borderRadius: '20px',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(226, 232, 240, 0.8)',
+              marginBottom: '32px'
+            }}>
+              <div style={{
+                display: 'flex',
+                flexDirection: isMobile ? 'column' : 'row',
+                alignItems: isMobile ? 'flex-start' : 'center',
+                justifyContent: 'space-between',
+                marginBottom: '20px',
+                gap: isMobile ? '16px' : '0'
+              }}>
+                <h3 style={{
+                  margin: 0,
+                  fontSize: '1.25rem',
+                  fontWeight: '700',
+                  color: '#1f2937'
+                }}>
+                  🏠 Seleccionar Colmenas ({selectedColmenas.length}/{userColmenas.length})
+                </h3>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => handleSelectAllColmenas(true)}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ✅ Todas
+                  </button>
+                  <button
+                    onClick={() => handleSelectAllColmenas(false)}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#ef4444',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '0.875rem',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ❌ Ninguna
+                  </button>
+                </div>
+              </div>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '16px'
+              }}>
+                {userColmenas.map(colmena => {
+                  const isSelected = selectedColmenas.includes(colmena.id);
+                  const colmenaDataCount = sensorData.filter(d => d.colmena_id === colmena.id).length;
+                  
+                  return (
+                    <div
+                      key={colmena.id}
+                      onClick={() => handleColmenaSelectionChange(colmena.id, !isSelected)}
+                      style={{
+                        padding: '16px',
+                        borderRadius: '12px',
+                        border: isSelected ? '2px solid #3b82f6' : '2px solid #e5e7eb',
+                        backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: isSelected ? '0 4px 12px rgba(59, 130, 246, 0.15)' : '0 1px 3px rgba(0, 0, 0, 0.1)'
+                      }}
+                    >
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '8px'
+                      }}>
+                        <h4 style={{
+                          margin: 0,
+                          fontSize: '1rem',
+                          fontWeight: '600',
+                          color: isSelected ? '#1d4ed8' : '#374151'
+                        }}>
+                          🏠 Colmena #{colmena.id}
+                        </h4>
+                        <div style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '4px',
+                          backgroundColor: isSelected ? '#3b82f6' : '#e5e7eb',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontSize: '12px'
+                        }}>
+                          {isSelected ? '✓' : ''}
+                        </div>
+                      </div>
+                      <p style={{
+                        margin: '0 0 8px 0',
+                        fontSize: '0.875rem',
+                        color: '#6b7280'
+                      }}>
+                        {colmena.descripcion || 'Sin descripción'}
+                      </p>
+                      <div style={{
+                        fontSize: '0.75rem',
+                        color: '#9ca3af',
+                        display: 'flex',
+                        justifyContent: 'space-between'
+                      }}>
+                        <span>📊 {colmenaDataCount} registros</span>
+                        <span>🟢 {colmenaDataCount > 0 ? 'Activa' : 'Sin datos'}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Componente de Filtros de Tiempo */}
           <TimeFilters
             timeFilter={timeFilter}
@@ -488,10 +677,10 @@ const UserDashboard = () => {
             onCustomDateRange={handleCustomDateRange}
           />
           
-          {/* Grid de estadísticas */}
+          {/* Grid de estadísticas - MODIFICADO: Mostrar info de colmenas seleccionadas */}
           <StatsGrid 
-            userColmenas={userColmenas}
-            filteredData={dataForComponents} // Usar datos agregados para estadísticas
+            userColmenas={userColmenas.filter(c => selectedColmenas.includes(c.id))}
+            filteredData={dataForComponents}
           />
 
           {/* Gráficos */}
@@ -521,7 +710,7 @@ const UserDashboard = () => {
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text'
               }}>
-                Sin Datos para el Período Seleccionado
+                {selectedColmenas.length === 0 ? 'Selecciona al menos una colmena' : 'Sin Datos para el Período Seleccionado'}
               </h3>
               <p style={{ 
                 fontSize: isMobile ? '1rem' : '1.1rem', 
@@ -529,7 +718,10 @@ const UserDashboard = () => {
                 margin: '0 0 16px 0',
                 fontWeight: '500'
               }}>
-                No se encontraron registros de sensores para el filtro aplicado.
+                {selectedColmenas.length === 0 ? 
+                  'Debes seleccionar al menos una colmena para ver los datos.' :
+                  'No se encontraron registros de sensores para el filtro aplicado.'
+                }
               </p>
             </div>
           ) : (
@@ -539,8 +731,8 @@ const UserDashboard = () => {
               gap: '32px',
               marginBottom: '32px'
             }}>
-              {/* Banner informativo sobre agregación */}
-              {dataForComponents.length > 0 && dataForComponents[0]?.isAggregated && (
+              {/* Banner informativo sobre agregación y colmenas */}
+              {dataForComponents.length > 0 && (
                 <div style={{
                   background: 'linear-gradient(135deg, #e0f2fe 0%, #b3e5fc 100%)',
                   padding: '16px 24px',
@@ -554,18 +746,29 @@ const UserDashboard = () => {
                     gap: '12px',
                     fontSize: '0.9rem',
                     color: '#0c4a6e',
-                    fontWeight: '600'
+                    fontWeight: '600',
+                    flexWrap: 'wrap'
                   }}>
                     <span style={{ fontSize: '1.2rem' }}>📊</span>
-                    Los datos mostrados son <strong>promedios {dataForComponents[0]?.aggregationType}</strong>.
-                    <span style={{
-                      backgroundColor: 'rgba(2, 132, 199, 0.1)',
-                      padding: '2px 8px',
-                      borderRadius: '6px',
-                      fontSize: '0.8rem'
-                    }}>
-                      {dataForComponents.length} períodos agregados
+                    <span>
+                      Mostrando datos de <strong>{selectedColmenas.length} colmena{selectedColmenas.length !== 1 ? 's' : ''}</strong>
                     </span>
+                    {dataForComponents[0]?.isAggregated && (
+                      <>
+                        <span>•</span>
+                        <span>
+                          <strong>Agregación:</strong> {dataForComponents[0]?.aggregationType}
+                        </span>
+                        <span style={{
+                          backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.8rem'
+                        }}>
+                          {dataForComponents.length} períodos agregados
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
