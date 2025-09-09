@@ -731,47 +731,7 @@ const UserDashboard = () => {
               gap: '32px',
               marginBottom: '32px'
             }}>
-              {/* Banner informativo sobre agregación y colmenas */}
-              {dataForComponents.length > 0 && (
-                <div style={{
-                  background: 'linear-gradient(135deg, #e0f2fe 0%, #b3e5fc 100%)',
-                  padding: '16px 24px',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(2, 132, 199, 0.2)',
-                  marginBottom: '16px'
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    fontSize: '0.9rem',
-                    color: '#0c4a6e',
-                    fontWeight: '600',
-                    flexWrap: 'wrap'
-                  }}>
-                    <span style={{ fontSize: '1.2rem' }}>📊</span>
-                    <span>
-                      Mostrando datos de <strong>{selectedColmenas.length} colmena{selectedColmenas.length !== 1 ? 's' : ''}</strong>
-                    </span>
-                    {dataForComponents[0]?.isAggregated && (
-                      <>
-                        <span>•</span>
-                        <span>
-                          <strong>Agregación:</strong> {dataForComponents[0]?.aggregationType}
-                        </span>
-                        <span style={{
-                          backgroundColor: 'rgba(2, 132, 199, 0.1)',
-                          padding: '2px 8px',
-                          borderRadius: '6px',
-                          fontSize: '0.8rem'
-                        }}>
-                          {dataForComponents.length} períodos agregados
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
+             
 
               {/* Gráfico de Temperatura y Humedad Interna */}
               <TemperatureHumidityInternalChart 

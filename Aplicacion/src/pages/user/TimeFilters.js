@@ -19,12 +19,12 @@ const TimeFilters = ({
   
   return (
     <div style={{
-      background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+      background: 'linear-gradient(135deg, #1f2937 0%, #111827 50%, #0f172a 100%)',
       padding: isMobile ? '20px' : '28px',
       borderRadius: '24px',
-      boxShadow: '0 10px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08)',
+      boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.2)',
       marginBottom: '32px',
-      border: '1px solid rgba(226, 232, 240, 0.6)',
+      border: '1px solid rgba(55, 65, 81, 0.6)',
       position: 'relative',
       overflow: 'hidden'
     }}>
@@ -35,7 +35,7 @@ const TimeFilters = ({
         right: '-10%',
         width: '200px',
         height: '200px',
-        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.02) 100%)',
+        background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(139, 92, 246, 0.04) 100%)',
         borderRadius: '50%',
         filter: 'blur(40px)',
         zIndex: 0
@@ -47,7 +47,7 @@ const TimeFilters = ({
           textAlign: 'center',
           marginBottom: '24px',
           paddingBottom: '20px',
-          borderBottom: '2px solid rgba(226, 232, 240, 0.3)'
+          borderBottom: '2px solid rgba(55, 65, 81, 0.4)'
         }}>
           <div style={{
             display: 'inline-flex',
@@ -57,7 +57,7 @@ const TimeFilters = ({
           }}>
             <div style={{
               fontSize: '2rem',
-              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
+              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))'
             }}>
               🕒
             </div>
@@ -65,27 +65,26 @@ const TimeFilters = ({
               margin: 0,
               fontSize: isMobile ? '1.3rem' : '1.5rem',
               fontWeight: '800',
-              background: 'linear-gradient(135deg, #1f2937 0%, #6366f1 50%, #8b5cf6 100%)',
+              background: 'linear-gradient(135deg, #f9fafb 0%, #6366f1 50%, #8b5cf6 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
               letterSpacing: '-0.025em'
             }}>
-              Filtros de Tiempo
             </h3>
           </div>
           
           <div style={{
-            background: 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
+            background: 'linear-gradient(135deg, #374151 0%, #4b5563 100%)',
             padding: '12px 20px',
             borderRadius: '16px',
             display: 'inline-block',
-            border: '1px solid rgba(148, 163, 184, 0.2)'
+            border: '1px solid rgba(75, 85, 99, 0.4)'
           }}>
             <div style={{
               margin: 0,
               fontSize: isMobile ? '0.9rem' : '1rem',
-              color: '#475569',
+              color: '#e5e7eb',
               fontWeight: '600',
               display: 'flex',
               alignItems: 'center',
@@ -148,11 +147,11 @@ const TimeFilters = ({
                 padding: isMobile ? '16px 12px' : '18px 16px',
                 background: timeFilter === filter.key 
                   ? filter.gradient
-                  : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-                color: timeFilter === filter.key ? 'white' : '#374151',
+                  : 'linear-gradient(135deg, #374151 0%, #4b5563 100%)',
+                color: 'white',
                 border: timeFilter === filter.key 
                   ? 'none' 
-                  : '2px solid rgba(148, 163, 184, 0.2)',
+                  : '2px solid rgba(75, 85, 99, 0.4)',
                 borderRadius: '16px',
                 fontSize: isMobile ? '0.9rem' : '1rem',
                 fontWeight: '700',
@@ -160,8 +159,8 @@ const TimeFilters = ({
                 transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                 transform: timeFilter === filter.key ? 'translateY(-2px) scale(1.02)' : 'translateY(0) scale(1)',
                 boxShadow: timeFilter === filter.key 
-                  ? `0 8px 25px ${filter.shadowColor}, 0 3px 10px rgba(0,0,0,0.1)` 
-                  : '0 2px 8px rgba(0, 0, 0, 0.08)',
+                  ? `0 8px 25px ${filter.shadowColor}, 0 3px 10px rgba(0,0,0,0.3)` 
+                  : '0 2px 8px rgba(0, 0, 0, 0.2)',
                 textAlign: 'center',
                 position: 'relative',
                 overflow: 'hidden',
@@ -170,13 +169,15 @@ const TimeFilters = ({
               onMouseEnter={(e) => {
                 if (timeFilter !== filter.key) {
                   e.target.style.transform = 'translateY(-1px) scale(1.01)';
-                  e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                  e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+                  e.target.style.background = 'linear-gradient(135deg, #4b5563 0%, #6b7280 100%)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (timeFilter !== filter.key) {
                   e.target.style.transform = 'translateY(0) scale(1)';
-                  e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.08)';
+                  e.target.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
+                  e.target.style.background = 'linear-gradient(135deg, #374151 0%, #4b5563 100%)';
                 }
               }}
             >
@@ -191,7 +192,7 @@ const TimeFilters = ({
                 </span>
                 <span style={{
                   fontSize: '0.75rem',
-                  opacity: timeFilter === filter.key ? 0.9 : 0.6,
+                  opacity: timeFilter === filter.key ? 0.9 : 0.7,
                   fontWeight: '500'
                 }}>
                   {filter.aggregationType}
@@ -203,16 +204,16 @@ const TimeFilters = ({
 
         {/* Custom Date Range Section */}
         <div style={{
-          background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+          background: 'linear-gradient(135deg, #374151 0%, #4b5563 100%)',
           padding: isMobile ? '16px' : '20px',
           borderRadius: '16px',
-          border: '2px solid rgba(148, 163, 184, 0.15)'
+          border: '2px solid rgba(75, 85, 99, 0.3)'
         }}>
           <h4 style={{
             margin: '0 0 16px 0',
             fontSize: '1.1rem',
             fontWeight: '600',
-            color: '#374151',
+            color: '#f9fafb',
             display: 'flex',
             alignItems: 'center',
             gap: '8px'
@@ -220,7 +221,7 @@ const TimeFilters = ({
             📅 Período Personalizado
             <span style={{
               fontSize: '0.75rem',
-              color: '#6b7280',
+              color: '#d1d5db',
               fontWeight: '400'
             }}>
               (Agrupación automática según rango)
@@ -238,7 +239,7 @@ const TimeFilters = ({
                 display: 'block',
                 fontSize: '0.9rem',
                 fontWeight: '500',
-                color: '#6b7280',
+                color: '#d1d5db',
                 marginBottom: '4px'
               }}>
                 Fecha Inicio
@@ -258,9 +259,10 @@ const TimeFilters = ({
                   width: '100%',
                   padding: '10px 12px',
                   borderRadius: '8px',
-                  border: '1px solid #d1d5db',
+                  border: '1px solid #6b7280',
                   fontSize: '0.9rem',
-                  background: 'white'
+                  background: '#1f2937',
+                  color: '#f9fafb'
                 }}
               />
             </div>
@@ -270,7 +272,7 @@ const TimeFilters = ({
                 display: 'block',
                 fontSize: '0.9rem',
                 fontWeight: '500',
-                color: '#6b7280',
+                color: '#d1d5db',
                 marginBottom: '4px'
               }}>
                 Fecha Fin
@@ -290,9 +292,10 @@ const TimeFilters = ({
                   width: '100%',
                   padding: '10px 12px',
                   borderRadius: '8px',
-                  border: '1px solid #d1d5db',
+                  border: '1px solid #6b7280',
                   fontSize: '0.9rem',
-                  background: 'white'
+                  background: '#1f2937',
+                  color: '#f9fafb'
                 }}
               />
             </div>
@@ -302,10 +305,11 @@ const TimeFilters = ({
           <div style={{
             marginTop: '12px',
             padding: '8px 12px',
-            background: 'rgba(99, 102, 241, 0.1)',
+            background: 'rgba(59, 130, 246, 0.2)',
             borderRadius: '8px',
             fontSize: '0.8rem',
-            color: '#6366f1'
+            color: '#93c5fd',
+            border: '1px solid rgba(59, 130, 246, 0.3)'
           }}>
             <strong>📝 Agrupación automática:</strong> ≤1 día (individual), 2-7 días (por día), 8-60 días (por semana), &gt;60 días (por mes)
           </div>
@@ -316,11 +320,12 @@ const TimeFilters = ({
           <div style={{
             marginTop: '16px',
             padding: '12px 16px',
-            background: 'rgba(148, 163, 184, 0.1)',
+            background: 'rgba(75, 85, 99, 0.3)',
             borderRadius: '12px',
             fontSize: '0.85rem',
-            color: '#64748b',
-            textAlign: 'center'
+            color: '#d1d5db',
+            textAlign: 'center',
+            border: '1px solid rgba(75, 85, 99, 0.4)'
           }}>
             <strong>💾 Datos disponibles:</strong> {rawData.length} registros totales en la base de datos
           </div>
