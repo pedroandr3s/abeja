@@ -428,17 +428,17 @@ export const ApiProvider = ({ children }) => {
   };
 
   // =============================================
-  // MÉTODOS PARA ALERTAS ✅ NUEVOS
+  // MÉTODOS PARA ALERTAS - INTEGRACIÓN COMPLETA
   // =============================================
   const alertas = {
     // Obtener todas las alertas definidas
     getAll: () => apiRequest('get', '/alertas'),
     
-    // Obtener alerta por ID
-    getById: (id) => apiRequest('get', `/alertas/${id}`),
-    
     // Evaluar alertas para una colmena específica
     evaluar: (colmenaId, hours = 168) => apiRequest('get', `/alertas/evaluar/${colmenaId}?hours=${hours}`),
+    
+    // Obtener sugerencias para una alerta específica
+    getSugerencias: (alertaId) => apiRequest('get', `/alertas/sugerencias/${alertaId}`),
     
     // Registrar nueva alerta manualmente
     registrar: (data) => apiRequest('post', '/alertas/registrar', data),
@@ -449,11 +449,37 @@ export const ApiProvider = ({ children }) => {
     // Obtener alertas activas por usuario
     getByUsuario: (usuarioId, hours = 24) => apiRequest('get', `/alertas/usuario/${usuarioId}?hours=${hours}`),
     
+    // Evaluar alertas para todas las colmenas de un usuario
+    evaluarParaUsuario: async (usuarioId, hours = 168) => {
+      try {
+        // Si no se proporciona usuarioId, obtenerlo del localStorage
+        if (!usuarioId) {
+          const userData = localStorage.getItem('smartbee_user');
+          if (!userData) {
+            throw new Error('Usuario no autenticado');
+          }
+          const user = JSON.parse(userData);
+          usuarioId = user.id;
+        }
+        
+        return await apiRequest('get', `/alertas/evaluarUsuario/${usuarioId}?hours=${hours}`);
+      } catch (error) {
+        console.error('Error evaluando alertas para usuario:', error);
+        throw error;
+      }
+    },
+    
     // Obtener estadísticas de alertas por colmena
     getEstadisticas: (colmenaId, days = 30) => apiRequest('get', `/alertas/estadisticas/${colmenaId}?days=${days}`),
     
-    // Método helper para evaluar alertas del usuario actual
-    evaluarParaUsuario: async (hours = 168) => {
+    // Limpiar alertas antiguas
+    limpiarAlertas: (colmenaId, days = 90) => apiRequest('delete', `/alertas/limpiar/${colmenaId}?days=${days}`),
+    
+    // Test específico para pdonald
+    testPdonald: () => apiRequest('get', '/alertas/test/pdonald'),
+    
+    // Método helper para evaluar alertas del usuario actual (compatibilidad)
+    evaluarParaUsuarioActual: async (hours = 168) => {
       try {
         const userData = localStorage.getItem('smartbee_user');
         if (!userData) {
@@ -461,48 +487,14 @@ export const ApiProvider = ({ children }) => {
         }
         
         const user = JSON.parse(userData);
-        
-        // Obtener alertas directamente por usuario
-        const alertasResponse = await apiRequest('get', `/alertas/usuario/${user.id}?hours=${hours}`);
-        const alertasUsuario = alertasResponse.data || [];
-        
-        // Obtener colmenas del usuario
-        const colmenasResponse = await apiRequest('get', `/colmenas/dueno/${user.id}`);
-        const colmenas = colmenasResponse.data || [];
-        
-        // Evaluar alertas para cada colmena
-        const alertasPorColmena = [];
-        
-        for (const colmena of colmenas) {
-          try {
-            const alertasResponse = await apiRequest('get', `/alertas/evaluar/${colmena.id}?hours=${hours}`);
-            if (alertasResponse.data && alertasResponse.data.alertas_activadas.length > 0) {
-              alertasPorColmena.push({
-                colmena: colmena,
-                alertas: alertasResponse.data.alertas_activadas
-              });
-            }
-          } catch (colmenaError) {
-            console.warn(`Error evaluando alertas para colmena ${colmena.id}:`, colmenaError);
-          }
-        }
-        
-        return {
-          success: true,
-          data: {
-            alertas_usuario: alertasUsuario,
-            alertas_por_colmena: alertasPorColmena,
-            total_colmenas: colmenas.length,
-            colmenas_con_alertas: alertasPorColmena.length
-          }
-        };
+        return await apiRequest('get', `/alertas/evaluarUsuario/${user.id}?hours=${hours}`);
       } catch (error) {
-        console.error('Error evaluando alertas para usuario:', error);
+        console.error('Error evaluando alertas para usuario actual:', error);
         throw error;
       }
     },
     
-    // Método helper para obtener alertas recientes del usuario
+    // Método helper para obtener alertas recientes del usuario actual
     getAlertasRecientes: async (hours = 24) => {
       try {
         const userData = localStorage.getItem('smartbee_user');
@@ -515,6 +507,102 @@ export const ApiProvider = ({ children }) => {
       } catch (error) {
         console.error('Error obteniendo alertas recientes:', error);
         throw error;
+      }
+    }
+  };
+
+  // =============================================
+  // HELPERS PARA ALERTAS Y UTILIDADES
+  // =============================================
+  const helpers = {
+    // Formatear fecha para mostrar
+    formatDate: (date) => {
+      if (!date) return 'N/A';
+      const d = new Date(date);
+      return d.toLocaleString('es-CL', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    },
+
+    // Obtener período estacional actual
+    getPeriodoEstacional: () => {
+      const mes = new Date().getMonth() + 1;
+      const esInvernada = mes >= 3 && mes <= 7;
+      return {
+        esInvernada,
+        esPrimaveraVerano: !esInvernada,
+        esEnjarbrazon: (mes >= 8 && mes <= 12) || mes === 1,
+        esCosecha: mes >= 11 || mes <= 3,
+        nombrePeriodo: esInvernada ? 'Invernada' : 'Primavera-Verano',
+        descripcion: esInvernada ? 'Marzo-Julio' : 'Agosto-Febrero'
+      };
+    },
+
+    // Procesar datos de payload JSON
+    procesarPayload: (payload) => {
+      try {
+        if (!payload) return null;
+        
+        const data = typeof payload === 'string' ? JSON.parse(payload) : payload;
+        return {
+          temperatura: data.temperatura ? parseFloat(data.temperatura) : null,
+          humedad: data.humedad ? parseFloat(data.humedad) : null,
+          peso: data.peso ? parseFloat(data.peso) : null,
+          latitud: data.latitud ? parseFloat(data.latitud) : null,
+          longitud: data.longitud ? parseFloat(data.longitud) : null
+        };
+      } catch (error) {
+        console.warn('Error procesando payload:', error);
+        return null;
+      }
+    },
+
+    // Determinar prioridad de alerta por ID
+    getPrioridadAlerta: (alertaId) => {
+      const prioridadesMap = {
+        'TI-TAC': 'CRÍTICA',
+        'TI-TAP': 'PREVENTIVA',
+        'TI-TBC-PI': 'CRÍTICA',
+        'TE-TA': 'ALTA',
+        'TE-TB': 'ALTA',
+        'HI-HAC-PI': 'CRÍTICA',
+        'HI-HAP-PI': 'PREVENTIVA',
+        'HI-HBC-PV': 'CRÍTICA',
+        'HI-HBP-PV': 'PREVENTIVA',
+        'PE-E': 'ALTA',
+        'PE-CPA': 'INFORMATIVA',
+        'PE-DP-PI': 'ALTA',
+        'TIE-TAC': 'CRÍTICA',
+        'HIE-HAC': 'CRÍTICA'
+      };
+      return prioridadesMap[alertaId] || 'MEDIA';
+    },
+
+    // Obtener emoji por prioridad
+    getEmojiPrioridad: (prioridad) => {
+      const emojiMap = {
+        'CRÍTICA': '🚨',
+        'ALTA': '⚠️',
+        'PREVENTIVA': '💡',
+        'MEDIA': 'ℹ️',
+        'INFORMATIVA': '✅'
+      };
+      return emojiMap[prioridad] || 'ℹ️';
+    },
+
+    // Verificar conexión
+    checkConnection: async () => {
+      try {
+        await apiRequest('get', '/health', null, false);
+        setIsConnected(true);
+        return true;
+      } catch {
+        setIsConnected(false);
+        return false;
       }
     }
   };
@@ -569,8 +657,11 @@ export const ApiProvider = ({ children }) => {
     dashboard,
     estaciones,
     reportes,
-    alertas, // ✅ NUEVO: Métodos de alertas
+    alertas, // ✅ Métodos de alertas integrados
     selects,
+    
+    // Helpers y utilidades
+    helpers, // ✅ Helpers para alertas y utilidades
     
     // ✅ NUEVO: Métodos de diagnóstico
     diagnostic,
@@ -584,7 +675,7 @@ export const ApiProvider = ({ children }) => {
     // URL base para referencia
     baseURL: getBaseURL(),
     
-    // ✅ NUEVOS MÉTODOS HELPER
+    // ✅ MÉTODOS HELPER ADICIONALES
     // Verificar si el backend está funcionando
     isBackendHealthy: () => isConnected && !error,
     
@@ -604,7 +695,7 @@ export const ApiProvider = ({ children }) => {
       }
     },
     
-    // Limpiar dats de sesión
+    // Limpiar datos de sesión
     clearSession: () => {
       localStorage.removeItem('smartbee_token');
       localStorage.removeItem('smartbee_user');

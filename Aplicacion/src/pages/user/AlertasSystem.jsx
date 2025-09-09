@@ -1,312 +1,301 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useApi } from '../../context/ApiContext'; // Ajusta la ruta según tu estructura
+// =====================================================
+// ALERTAS SYSTEM CORREGIDO - SIN LLAMADAS MÚLTIPLES AL CARGAR
+// Archivo: frontend/components/AlertasSystemActualizado.js
+// =====================================================
 
-const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useApi } from '../../context/ApiContext';
+
+const AlertasSystemActualizado = ({ isOpen, onClose, sensorData, filteredData }) => {
   const { alertas, usuarios, colmenas, loading, error } = useApi();
   const [alertasActivas, setAlertasActivas] = useState([]);
   const [alertasDefinidas, setAlertasDefinidas] = useState([]);
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [filtroPrioridad, setFiltroPrioridad] = useState('todos');
-  const [historialAlertas, setHistorialAlertas] = useState([]);
-  const [tabActiva, setTabActiva] = useState('activas');
   const [colmenasUsuario, setColmenasUsuario] = useState([]);
   const [loadingAlertas, setLoadingAlertas] = useState(false);
+  const [alertaExpandida, setAlertaExpandida] = useState(null);
+  const [sugerenciasCache, setSugerenciasCache] = useState({});
 
-  // Obtener información del usuario actual
+  // Referencias para control estricto de carga
+  const isLoadingRef = useRef(false);
+  const alertasDefinadasCargadas = useRef(false);
+  const colmenasCarradas = useRef(false);
+  const alertasEvaluadasRef = useRef(false);
+  const mountedRef = useRef(true);
+  const currentUserIdRef = useRef(null);
+
   const usuarioActual = usuarios.getCurrentUser();
 
-  // Cargar alertas definidas al montar el componente
+  // Limpiar referencias al desmontar
   useEffect(() => {
-    const cargarAlertasDefinidas = async () => {
-      try {
-        const response = await alertas.getAll();
-        setAlertasDefinidas(response.data || []);
-      } catch (error) {
-        console.error('Error cargando alertas definidas:', error);
-      }
+    mountedRef.current = true;
+    
+    return () => {
+      mountedRef.current = false;
+      isLoadingRef.current = false;
     };
+  }, []);
 
-    if (isOpen) {
-      cargarAlertasDefinidas();
-    }
-  }, [isOpen, alertas]);
-
-  // Cargar colmenas del usuario y evaluar alertas
+  // Reset cuando cambia el usuario
   useEffect(() => {
-    const cargarDatosUsuario = async () => {
-      if (!usuarioActual || !isOpen) return;
+    if (usuarioActual?.id !== currentUserIdRef.current) {
+      console.log('👤 Usuario cambió, reseteando cache de alertas system');
+      alertasDefinadasCargadas.current = false;
+      colmenasCarradas.current = false;
+      alertasEvaluadasRef.current = false;
+      currentUserIdRef.current = usuarioActual?.id;
+      
+      // Limpiar estados
+      setAlertasDefinidas([]);
+      setColmenasUsuario([]);
+      setAlertasActivas([]);
+    }
+  }, [usuarioActual?.id]);
 
-      setLoadingAlertas(true);
-      try {
-        // Obtener colmenas del usuario
-        const colmenasResponse = await colmenas.getByDueno(usuarioActual.id);
+  // Reset al cerrar modal
+  useEffect(() => {
+    if (!isOpen) {
+      isLoadingRef.current = false;
+      setLoadingAlertas(false);
+    }
+  }, [isOpen]);
+
+  // Cargar alertas definidas - SOLO UNA VEZ
+  const cargarAlertasDefinidas = useCallback(async () => {
+    if (alertasDefinadasCargadas.current || isLoadingRef.current) {
+      console.log('📋 Alertas definidas ya cargadas o cargando, omitiendo...');
+      return;
+    }
+
+    try {
+      isLoadingRef.current = true;
+      console.log('📋 Cargando alertas definidas...');
+      
+      const response = await alertas.getAll();
+      
+      if (mountedRef.current && response.success) {
+        setAlertasDefinidas(response.data || []);
+        alertasDefinadasCargadas.current = true;
+        console.log(`✅ ${response.data?.length || 0} alertas definidas cargadas`);
+      }
+    } catch (error) {
+      console.error('❌ Error cargando alertas definidas:', error);
+      if (mountedRef.current) {
+        setAlertasDefinidas([]);
+      }
+    } finally {
+      isLoadingRef.current = false;
+    }
+  }, [alertas]);
+
+  // Cargar colmenas del usuario - SOLO UNA VEZ POR USUARIO
+  const cargarColmenasUsuario = useCallback(async () => {
+    if (!usuarioActual || colmenasCarradas.current || isLoadingRef.current) {
+      console.log('🏠 Colmenas ya cargadas o cargando, omitiendo...');
+      return;
+    }
+
+    try {
+      isLoadingRef.current = true;
+      console.log('🏠 Cargando colmenas del usuario...');
+      
+      const colmenasResponse = await colmenas.getByDueno(usuarioActual.id);
+      
+      if (mountedRef.current) {
         const colmenasData = colmenasResponse.data || [];
         setColmenasUsuario(colmenasData);
-
-        // Evaluar alertas para todas las colmenas del usuario usando el método optimizado
-        const alertasResponse = await alertas.evaluarParaUsuario(168); // Últimas 7 días
-        
-        if (alertasResponse.success) {
-          const { alertas_usuario, alertas_por_colmena } = alertasResponse.data;
-          
-          // Procesar alertas activas de evaluación en tiempo real
-          const todasLasAlertas = [];
-          alertas_por_colmena.forEach(({ colmena, alertas: alertasColmena }) => {
-            const alertasConColmena = alertasColmena.map(alerta => ({
-              ...alerta,
-              colmena_nombre: colmena.nombre || `Colmena #${colmena.id}`,
-              colmena_id: colmena.id,
-              es_tiempo_real: true
-            }));
-            todasLasAlertas.push(...alertasConColmena);
-          });
-
-          // Convertir fechas en alertas activas
-          const alertasActivasConFecha = todasLasAlertas.map(alerta => ({
-            ...alerta,
-            fecha: new Date(alerta.fecha)
-          }));
-
-          setAlertasActivas(alertasActivasConFecha);
-
-          // Procesar historial desde nodo_alerta
-          const historialConFormato = alertas_usuario.map(alertaHistorial => ({
-            id: alertaHistorial.alerta_id,
-            nombre: alertaHistorial.nombre,
-            descripcion: alertaHistorial.descripcion,
-            indicador: alertaHistorial.indicador,
-            fecha: new Date(alertaHistorial.fecha),
-            colmena_nombre: alertaHistorial.colmena_nombre,
-            colmena_id: alertaHistorial.colmena_id,
-            nodo_id: alertaHistorial.nodo_id,
-            nodo_nombre: alertaHistorial.nodo_nombre,
-            tipo_nodo: alertaHistorial.tipo_nodo,
-            es_historial: true,
-            prioridad: 'MEDIA' // El historial no tiene prioridad específica
-          }));
-
-          setHistorialAlertas(historialConFormato);
-        }
-
-      } catch (error) {
-        console.error('Error cargando datos del usuario:', error);
-      } finally {
-        setLoadingAlertas(false);
+        colmenasCarradas.current = true;
+        console.log(`✅ ${colmenasData.length} colmenas cargadas para ${usuarioActual.id}`);
       }
-    };
+    } catch (error) {
+      console.error('❌ Error cargando colmenas:', error);
+      if (mountedRef.current) {
+        setColmenasUsuario([]);
+      }
+    } finally {
+      isLoadingRef.current = false;
+    }
+  }, [usuarioActual, colmenas]);
 
-    cargarDatosUsuario();
-  }, [usuarioActual, isOpen, alertas, colmenas]);
-
-  // Mapeo de alertas de base de datos a la UI
-  const mapearAlertaDB = (alertaDB) => {
-    const alertaDefinida = alertasDefinidas.find(def => def.id === alertaDB.id);
-    
-    // Mapeo de prioridades
-    const prioridadMap = {
-      'CRÍTICA': 'CRÍTICA',
-      'ALTA': 'ALTA', 
-      'PREVENTIVA': 'PREVENTIVA',
-      'MEDIA': 'MEDIA',
-      'INFORMATIVA': 'INFORMATIVA'
-    };
-
-    // Mapeo de tipos basado en el indicador
-    let tipo = 'general';
-    if (alertaDefinida?.indicador?.toLowerCase().includes('temperatura')) {
-      tipo = 'temperatura';
-    } else if (alertaDefinida?.indicador?.toLowerCase().includes('humedad')) {
-      tipo = 'humedad';
-    } else if (alertaDefinida?.indicador?.toLowerCase().includes('peso')) {
-      tipo = 'peso';
-    } else if (alertaDefinida?.indicador?.toLowerCase().includes('externa') && 
-               alertaDefinida?.indicador?.toLowerCase().includes('interna')) {
-      tipo = 'combinada';
+  // Evaluar alertas del usuario - SOLO UNA VEZ POR SESIÓN
+  const evaluarAlertasUsuario = useCallback(async () => {
+    if (!usuarioActual || alertasEvaluadasRef.current || isLoadingRef.current) {
+      console.log('🔍 Alertas ya evaluadas o evaluando, omitiendo...');
+      return;
     }
 
-    // Generar acciones basadas en el tipo de alerta
-    const generarAcciones = (alertaId, tipo) => {
-      const accionesMap = {
-        'ALERT001': [
-          'Alerta urgente: visitar apiario inmediatamente',
-          'Retirar listón guarda piquera para mejorar ventilación', 
-          'Evaluar necesidad de colocar alza para descongestionar',
-          'Proporcionar fuentes de hidratación adicionales',
-          'Implementar sombreado (malla sombra NO negra o sombra natural)'
-        ],
-        'ALERT002': [
-          'Revisar y ajustar guarda piquera',
-          'Evaluar necesidad de alza adicional',
-          'Revisar control de enjambrazón',
-          'Proporcionar fuentes de hidratación',
-          'Implementar sombreado preventivo'
-        ],
-        'ALERT003': [
-          'Revisar población (si <4 marcos con abejas → fusionar o cambiar a nuclero)',
-          'Evaluar reservas de alimento (suplementar si es necesario)',
-          'Reducir espacio de colmena (retirar alzas no utilizadas)',
-          'Verificar posición relativa de abejas respecto al sensor'
-        ],
-        'ALERT004': [
-          'Gestionar tamaño de colmena (retirar alzas innecesarias)',
-          'Evaluar reservas de alimento',
-          'Verificar posición de abejas respecto al sensor'
-        ],
-        'ALERT005': [
-          'Revisar y ajustar guarda piquera externa',
-          'Evaluar ubicación del apiario (exceso de radiación)',
-          'Implementar sombreado natural'
-        ],
-        'ALERT006': [
-          'Monitorear condiciones climáticas externas',
-          'Verificar protección de la colmena',
-          'Evaluar microubicación del apiario'
-        ],
-        'ALERT007': [
-          'Verificar posición de abejas respecto al sensor',
-          'Reducir espacio de colmena (retirar alzas no utilizadas)',
-          'Revisar estado físico de la colmena (cambiar si está deteriorada)',
-          'Evaluar población (si <4 marcos → fusionar o cambiar a nuclero)',
-          'Revisar ubicación del apiario (cambiar si está en zona húmeda)'
-        ],
-        'ALERT008': [
-          'Gestionar tamaño de colmena',
-          'Colocar cuña para drenaje hacia piquera'
-        ],
-        'ALERT009': [
-          'URGENTE: Proporcionar fuentes de agua inmediatamente',
-          'Evaluar ubicación del apiario (exceso de radiación solar)',
-          'Implementar mecanismos de sombra'
-        ],
-        'ALERT010': [
-          'Colocar recipientes con agua (con flotadores o piedras)',
-          'Registrar para análisis de humedad interna vs externa'
-        ],
-        'ALERT011': [
-          'Revisar colmenas cada 7-10 días eliminando celdas reales',
-          'Colocar alzas en colmenas desarrolladas',
-          'Realizar núcleos aprovechando celdas reales'
-        ],
-        'ALERT012': [
-          'Evaluar cosecha de miel',
-          'Si no se puede cosechar → colocar alzas adicionales'
-        ],
-        'ALERT013': [
-          'Evaluar suplementación alimentaria',
-          'Revisar reservas naturales de la colmena',
-          'Considerar fusión con otra colmena si la pérdida es crítica'
-        ],
-        'ALERT014': [
-          'Investigar causa de pérdida abrupta de peso',
-          'Revisar integridad física de la colmena',
-          'Evaluar posible robo o pillaje'
-        ],
-        'ALERT015': [
-          'URGENTE: Visitar apiario inmediatamente',
-          'Retirar material si hay colonias muertas (evitar pillaje)',
-          'Cambiar a cajas menores si quedan abejas vivas',
-          'Evaluar posición relativa de abejas respecto al sensor'
-        ],
-        'ALERT016': [
-          'URGENTE: Visitar apiario inmediatamente',
-          'Retirar material si hay colonias muertas (evitar pillaje)',
-          'Cambiar a cajas menores si quedan abejas vivas',
-          'Evaluar posición relativa de abejas respecto al sensor'
-        ]
+    try {
+      isLoadingRef.current = true;
+      setLoadingAlertas(true);
+      console.log('🔍 Evaluando alertas del usuario...');
+      
+      const alertasResponse = await alertas.evaluarParaUsuario(usuarioActual.id, 168);
+      
+      if (mountedRef.current && alertasResponse.success) {
+        const { alertas_por_colmena } = alertasResponse.data;
+        
+        // Procesar alertas activas
+        const todasLasAlertas = [];
+        alertas_por_colmena.forEach(({ colmena, alertas: alertasColmena }) => {
+          const alertasConColmena = alertasColmena.map(alerta => ({
+            ...alerta,
+            colmena_nombre: colmena.nombre || `Colmena #${colmena.id}`,
+            colmena_id: colmena.id,
+            es_tiempo_real: true,
+            fecha: new Date(alerta.fecha)
+          }));
+          todasLasAlertas.push(...alertasConColmena);
+        });
+
+        setAlertasActivas(todasLasAlertas);
+        alertasEvaluadasRef.current = true;
+        console.log(`✅ ${todasLasAlertas.length} alertas evaluadas`);
+      }
+    } catch (error) {
+      console.error('❌ Error evaluando alertas:', error);
+      if (mountedRef.current) {
+        setAlertasActivas([]);
+      }
+    } finally {
+      if (mountedRef.current) {
+        setLoadingAlertas(false);
+      }
+      isLoadingRef.current = false;
+    }
+  }, [usuarioActual, alertas]);
+
+  // Cargar datos cuando se abre el modal - SECUENCIAL para evitar sobrecargas
+  useEffect(() => {
+    if (isOpen && usuarioActual && mountedRef.current) {
+      console.log('🚀 Modal abierto, iniciando carga secuencial...');
+      
+      const cargarDatosSecuencial = async () => {
+        try {
+          // 1. Cargar alertas definidas
+          await cargarAlertasDefinidas();
+          
+          // 2. Cargar colmenas del usuario
+          if (mountedRef.current) {
+            await cargarColmenasUsuario();
+          }
+          
+          // 3. Evaluar alertas del usuario
+          if (mountedRef.current) {
+            await evaluarAlertasUsuario();
+          }
+          
+          console.log('✅ Carga secuencial completada');
+        } catch (error) {
+          console.error('❌ Error en carga secuencial:', error);
+        }
       };
 
-      return accionesMap[alertaId] || [
-        'Revisar condiciones de la colmena',
-        'Consultar con especialista si persiste',
-        'Monitorear evolución en próximas mediciones'
-      ];
+      cargarDatosSecuencial();
+    }
+  }, [isOpen, usuarioActual?.id, cargarAlertasDefinidas, cargarColmenasUsuario, evaluarAlertasUsuario]);
+
+  // Función para obtener sugerencias (con cache)
+  const obtenerSugerencias = useCallback(async (alertaId) => {
+    if (sugerenciasCache[alertaId]) {
+      return sugerenciasCache[alertaId];
+    }
+
+    try {
+      const response = await alertas.getSugerencias(alertaId);
+      
+      if (response.success) {
+        const sugerencias = response.data.sugerencias || [];
+        setSugerenciasCache(prev => ({
+          ...prev,
+          [alertaId]: sugerencias
+        }));
+        return sugerencias;
+      }
+    } catch (error) {
+      console.error('Error obteniendo sugerencias:', error);
+    }
+    
+    return [];
+  }, [alertas, sugerenciasCache]);
+
+  // Mapear alertas con nueva estructura
+  const mapearAlertaActualizada = useCallback((alertaDB) => {
+    const getPrioridadPorId = (id) => {
+      const prioridadesMap = {
+        'TI-TAC': 'CRÍTICA',
+        'TI-TAP': 'PREVENTIVA',
+        'TI-TBC-PI': 'CRÍTICA',
+        'TE-TA': 'ALTA',
+        'TE-TB': 'ALTA',
+        'HI-HAC-PI': 'CRÍTICA',
+        'HI-HAP-PI': 'PREVENTIVA',
+        'HI-HBC-PV': 'CRÍTICA',
+        'HI-HBP-PV': 'PREVENTIVA',
+        'PE-E': 'ALTA',
+        'PE-CPA': 'INFORMATIVA',
+        'PE-DP-PI': 'ALTA',
+        'TIE-TAC': 'CRÍTICA',
+        'HIE-HAC': 'CRÍTICA'
+      };
+      return prioridadesMap[id] || 'MEDIA';
+    };
+
+    const getTipoPorIndicador = (indicador) => {
+      if (indicador?.toLowerCase().includes('temperatura')) {
+        return 'temperatura';
+      } else if (indicador?.toLowerCase().includes('humedad')) {
+        return 'humedad';
+      } else if (indicador?.toLowerCase().includes('peso')) {
+        return 'peso';
+      } else if (indicador?.toLowerCase().includes('interna') && 
+                 indicador?.toLowerCase().includes('externa')) {
+        return 'combinada';
+      }
+      return 'general';
+    };
+
+    const prioridad = getPrioridadPorId(alertaDB.id);
+    const tipo = getTipoPorIndicador(alertaDB.indicador);
+
+    const getEmojiBySeverity = (prioridad) => {
+      const emojiMap = {
+        'CRÍTICA': '🚨',
+        'ALTA': '⚠️', 
+        'PREVENTIVA': '💡',
+        'MEDIA': 'ℹ️',
+        'INFORMATIVA': '✅'
+      };
+      return emojiMap[prioridad] || 'ℹ️';
     };
 
     return {
       id: alertaDB.id,
       tipo: tipo,
-      subtipo: alertaDB.id.toLowerCase(),
-      prioridad: prioridadMap[alertaDB.prioridad] || 'MEDIA',
-      titulo: `${getEmojiBySeverity(alertaDB.prioridad)} ${alertaDB.nombre}`,
-      mensaje: alertaDB.descripcion || alertaDefinida?.descripcion || 'Condición detectada',
+      prioridad: prioridad,
+      titulo: `${getEmojiBySeverity(prioridad)} ${alertaDB.nombre}`,
+      mensaje: alertaDB.descripcion,
       valor: alertaDB.valor || 'N/A',
       unidad: tipo === 'temperatura' ? '°C' : tipo === 'humedad' ? '%' : tipo === 'peso' ? 'kg' : '',
-      condicion: alertaDefinida?.descripcion || 'Revisar condición',
+      condicion: alertaDB.descripcion,
       eventos: alertaDB.eventos || null,
       fecha: alertaDB.fecha || new Date(),
-      acciones: generarAcciones(alertaDB.id, tipo),
       colmena_nombre: alertaDB.colmena_nombre || `Colmena #${alertaDB.colmena_id}`,
       diferencia: alertaDB.diferencia,
       incremento: alertaDB.incremento,
-      nodo_id: alertaDB.nodo_id
+      nodo_id: alertaDB.nodo_id,
+      sugerencia_raw: alertaDB.sugerencia
     };
-  };
+  }, []);
 
-  // Helper para obtener emoji según severidad
-  const getEmojiBySeverity = (prioridad) => {
-    const emojiMap = {
-      'CRÍTICA': '🚨',
-      'ALTA': '⚠️', 
-      'PREVENTIVA': '💡',
-      'MEDIA': 'ℹ️',
-      'INFORMATIVA': '✅'
-    };
-    return emojiMap[prioridad] || 'ℹ️';
-  };
-
-  // Convertir alertas de DB a formato de UI
+  // Convertir alertas activas a formato UI
   const alertasParaUI = useMemo(() => {
-    return alertasActivas.map(alerta => {
-      // Si es una alerta de tiempo real (recién evaluada)
-      if (alerta.es_tiempo_real) {
-        return mapearAlertaDB(alerta);
-      }
-      
-      // Si es una alerta del historial de nodo_alerta
-      const alertaDefinida = alertasDefinidas.find(def => def.id === alerta.id);
-      return {
-        ...mapearAlertaDB({
-          id: alerta.id,
-          nombre: alerta.nombre || alertaDefinida?.nombre || 'Alerta',
-          descripcion: alerta.descripcion || alertaDefinida?.descripcion,
-          prioridad: alerta.prioridad || 'MEDIA',
-          valor: alerta.valor || 'N/A',
-          fecha: alerta.fecha,
-          colmena_nombre: alerta.colmena_nombre,
-          colmena_id: alerta.colmena_id,
-          nodo_id: alerta.nodo_id
-        }),
-        es_historial: alerta.es_historial
-      };
-    });
-  }, [alertasActivas, alertasDefinidas]);
-
-  const historialParaUI = useMemo(() => {
-    return historialAlertas.map(alertaHistorial => {
-      const alertaDefinida = alertasDefinidas.find(def => def.id === alertaHistorial.id);
-      
-      return {
-        ...mapearAlertaDB({
-          id: alertaHistorial.id,
-          nombre: alertaHistorial.nombre || alertaDefinida?.nombre || 'Alerta',
-          descripcion: alertaHistorial.descripcion || alertaDefinida?.descripcion,
-          prioridad: alertaHistorial.prioridad || 'MEDIA',
-          valor: 'Ver detalles',
-          fecha: alertaHistorial.fecha,
-          colmena_nombre: alertaHistorial.colmena_nombre,
-          colmena_id: alertaHistorial.colmena_id,
-          nodo_id: alertaHistorial.nodo_id
-        }),
-        nodo_nombre: alertaHistorial.nodo_nombre,
-        tipo_nodo: alertaHistorial.tipo_nodo,
-        es_historial: true
-      };
-    });
-  }, [historialAlertas, alertasDefinidas]);
+    return alertasActivas.map(alerta => mapearAlertaActualizada(alerta));
+  }, [alertasActivas, mapearAlertaActualizada]);
 
   // Filtrar alertas según criterios seleccionados
   const alertasFiltradas = useMemo(() => {
-    let alertas = tabActiva === 'activas' ? alertasParaUI : historialParaUI;
+    let alertas = alertasParaUI;
     
     if (filtroTipo !== 'todos') {
       alertas = alertas.filter(alerta => alerta.tipo === filtroTipo);
@@ -317,16 +306,15 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
     }
     
     return alertas.sort((a, b) => {
-      // Ordenar por prioridad y luego por fecha
       const prioridades = { 'CRÍTICA': 5, 'ALTA': 4, 'PREVENTIVA': 3, 'MEDIA': 2, 'INFORMATIVA': 1 };
       const diffPrioridad = prioridades[b.prioridad] - prioridades[a.prioridad];
       if (diffPrioridad !== 0) return diffPrioridad;
       return b.fecha.getTime() - a.fecha.getTime();
     });
-  }, [alertasParaUI, historialParaUI, filtroTipo, filtroPrioridad, tabActiva]);
+  }, [alertasParaUI, filtroTipo, filtroPrioridad]);
 
   // Configuración de colores por prioridad
-  const getColorConfig = (prioridad) => {
+  const getColorConfig = useCallback((prioridad) => {
     const configs = {
       'CRÍTICA': {
         bg: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
@@ -360,7 +348,31 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
       }
     };
     return configs[prioridad] || configs['MEDIA'];
-  };
+  }, []);
+
+  // Función para expandir/contraer alerta
+  const toggleAlertaExpansion = useCallback(async (alertaId) => {
+    if (alertaExpandida === alertaId) {
+      setAlertaExpandida(null);
+    } else {
+      setAlertaExpandida(alertaId);
+      if (!sugerenciasCache[alertaId]) {
+        await obtenerSugerencias(alertaId);
+      }
+    }
+  }, [alertaExpandida, sugerenciasCache, obtenerSugerencias]);
+
+  // Procesar sugerencias desde texto crudo
+  const procesarSugerencias = useCallback((sugerenciaTexto) => {
+    if (!sugerenciaTexto) return [];
+    
+    const sugerencias = sugerenciaTexto
+      .split(/\d+\./)
+      .filter(s => s.trim().length > 0)
+      .map(s => s.trim());
+      
+    return sugerencias;
+  }, []);
 
   const isMobile = window.innerWidth <= 768;
   const isTablet = window.innerWidth > 768 && window.innerWidth <= 1024;
@@ -421,7 +433,7 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
               backgroundClip: 'text',
               lineHeight: '1.2'
             }}>
-              🚨 Sistema de Alertas SmartBee
+              Sistema de Alertas SmartBee
             </h2>
             <button
               onClick={onClose}
@@ -438,11 +450,11 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
                 alignSelf: isMobile ? 'flex-end' : 'auto'
               }}
             >
-              ✕ Cerrar
+              Cerrar
             </button>
           </div>
 
-          {/* Información del usuario y colmenas */}
+          {/* Información del usuario */}
           {usuarioActual && (
             <div style={{
               background: 'rgba(99, 102, 241, 0.1)',
@@ -453,8 +465,8 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
               color: '#4c1d95'
             }}>
               <strong>Usuario:</strong> {usuarioActual.nombre} {usuarioActual.apellido} | 
-              <strong> Colmenas monitoreadas:</strong> {colmenasUsuario.length}
-              {loadingAlertas && <span> | ⏳ Evaluando alertas...</span>}
+              <strong> Colmenas:</strong> {colmenasUsuario.length}
+              {loadingAlertas && <span> | Evaluando alertas...</span>}
             </div>
           )}
 
@@ -478,8 +490,7 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
                 borderRadius: isMobile ? '10px' : '12px',
                 textAlign: 'center',
                 border: `2px solid ${stat.color}`,
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-                gridColumn: isMobile && index >= 3 ? (index === 3 ? 'span 1' : 'span 1') : 'span 1'
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
               }}>
                 <div style={{
                   fontSize: isMobile ? '1.25rem' : '1.5rem',
@@ -500,100 +511,56 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
             ))}
           </div>
 
-          {/* Tabs y Filtros */}
+          {/* Filtros */}
           <div style={{
             display: 'flex',
-            flexDirection: 'column',
-            gap: '12px'
+            gap: isMobile ? '8px' : '12px',
+            flexDirection: isMobile ? 'column' : 'row'
           }}>
-            {/* Tabs */}
-            <div style={{
-              display: 'flex',
-              gap: '8px',
-              justifyContent: isMobile ? 'center' : 'flex-start',
-              flexWrap: 'wrap'
-            }}>
-              {[
-                { key: 'activas', label: '🔴 Activas', count: alertasParaUI.length },
-                { key: 'historial', label: '📋 Historial', count: historialParaUI.length }
-              ].map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setTabActiva(tab.key)}
-                  style={{
-                    padding: isMobile ? '8px 14px' : '10px 16px',
-                    background: tabActiva === tab.key 
-                      ? 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)'
-                      : 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-                    color: tabActiva === tab.key ? 'white' : '#4b5563',
-                    border: 'none',
-                    borderRadius: '10px',
-                    fontSize: isMobile ? '0.8rem' : '0.9rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    boxShadow: tabActiva === tab.key 
-                      ? '0 4px 14px rgba(99, 102, 241, 0.4)'
-                      : '0 2px 8px rgba(0, 0, 0, 0.1)',
-                    flex: isMobile ? '1' : 'auto'
-                  }}
-                >
-                  {isMobile ? tab.label.split(' ')[1] : tab.label} ({tab.count})
-                </button>
-              ))}
-            </div>
+            <select
+              value={filtroTipo}
+              onChange={(e) => setFiltroTipo(e.target.value)}
+              style={{
+                padding: isMobile ? '10px 12px' : '8px 12px',
+                border: '2px solid rgba(148, 163, 184, 0.3)',
+                borderRadius: '8px',
+                fontSize: isMobile ? '0.8rem' : '0.9rem',
+                fontWeight: '500',
+                background: 'white',
+                color: '#4b5563',
+                cursor: 'pointer',
+                flex: isMobile ? '1' : 'auto'
+              }}
+            >
+              <option value="todos">Todos los tipos</option>
+              <option value="temperatura">Temperatura</option>
+              <option value="humedad">Humedad</option>
+              <option value="peso">Peso</option>
+              <option value="combinada">Combinadas</option>
+            </select>
 
-            {/* Filtros */}
-            <div style={{
-              display: 'flex',
-              gap: isMobile ? '8px' : '12px',
-              flexDirection: isMobile ? 'column' : 'row'
-            }}>
-              <select
-                value={filtroTipo}
-                onChange={(e) => setFiltroTipo(e.target.value)}
-                style={{
-                  padding: isMobile ? '10px 12px' : '8px 12px',
-                  border: '2px solid rgba(148, 163, 184, 0.3)',
-                  borderRadius: '8px',
-                  fontSize: isMobile ? '0.8rem' : '0.9rem',
-                  fontWeight: '500',
-                  background: 'white',
-                  color: '#4b5563',
-                  cursor: 'pointer',
-                  flex: isMobile ? '1' : 'auto'
-                }}
-              >
-                <option value="todos">📊 Todos los tipos</option>
-                <option value="temperatura">🌡️ Temperatura</option>
-                <option value="humedad">💧 Humedad</option>
-                <option value="peso">⚖️ Peso</option>
-                <option value="combinada">🔗 Combinadas</option>
-              </select>
-
-              <select
-                value={filtroPrioridad}
-                onChange={(e) => setFiltroPrioridad(e.target.value)}
-                style={{
-                  padding: isMobile ? '10px 12px' : '8px 12px',
-                  border: '2px solid rgba(148, 163, 184, 0.3)',
-                  borderRadius: '8px',
-                  fontSize: isMobile ? '0.8rem' : '0.9rem',
-                  fontWeight: '500',
-                  background: 'white',
-                  color: '#4b5563',
-                  cursor: 'pointer',
-                  flex: isMobile ? '1' : 'auto'
-                }}
-              >
-                <option value="todos">🎯 Todas las prioridades</option>
-                <option value="CRÍTICA">🚨 Críticas</option>
-                <option value="ALTA">⚠️ Altas</option>
-                <option value="PREVENTIVA">💡 Preventivas</option>
-                <option value="MEDIA">ℹ️ Medias</option>
-                <option value="INFORMATIVA">✅ Informativas</option>
-              </select>
-            </div>
+            <select
+              value={filtroPrioridad}
+              onChange={(e) => setFiltroPrioridad(e.target.value)}
+              style={{
+                padding: isMobile ? '10px 12px' : '8px 12px',
+                border: '2px solid rgba(148, 163, 184, 0.3)',
+                borderRadius: '8px',
+                fontSize: isMobile ? '0.8rem' : '0.9rem',
+                fontWeight: '500',
+                background: 'white',
+                color: '#4b5563',
+                cursor: 'pointer',
+                flex: isMobile ? '1' : 'auto'
+              }}
+            >
+              <option value="todos">Todas las prioridades</option>
+              <option value="CRÍTICA">Críticas</option>
+              <option value="ALTA">Altas</option>
+              <option value="PREVENTIVA">Preventivas</option>
+              <option value="MEDIA">Medias</option>
+              <option value="INFORMATIVA">Informativas</option>
+            </select>
           </div>
         </div>
 
@@ -643,17 +610,14 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
                 color: '#0c4a6e',
                 margin: '0 0 8px 0'
               }}>
-                {tabActiva === 'activas' ? 'No hay alertas activas' : 'Sin historial de alertas'}
+                No hay alertas activas
               </h3>
               <p style={{
                 color: '#075985',
                 margin: 0,
                 fontSize: '1rem'
               }}>
-                {tabActiva === 'activas' 
-                  ? 'Todas las condiciones están dentro de los rangos normales'
-                  : 'Aún no se han registrado alertas en el sistema'
-                }
+                Todas las condiciones están dentro de los rangos normales
               </p>
             </div>
           ) : (
@@ -664,6 +628,8 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
             }}>
               {alertasFiltradas.map((alerta, index) => {
                 const colorConfig = getColorConfig(alerta.prioridad);
+                const isExpanded = alertaExpandida === alerta.id;
+                const sugerenciasArray = procesarSugerencias(alerta.sugerencia_raw);
                 
                 return (
                   <div key={`${alerta.id}-${index}`} style={{
@@ -718,19 +684,7 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
                               fontSize: '0.7rem',
                               fontWeight: '600'
                             }}>
-                              🏠 {alerta.colmena_nombre}
-                            </span>
-                          )}
-                          {alerta.nodo_nombre && alerta.es_historial && (
-                            <span style={{
-                              background: '#10b981',
-                              color: 'white',
-                              padding: '2px 8px',
-                              borderRadius: '12px',
-                              fontSize: '0.7rem',
-                              fontWeight: '600'
-                            }}>
-                              📡 {alerta.nodo_nombre}
+                              {alerta.colmena_nombre}
                             </span>
                           )}
                         </div>
@@ -785,59 +739,96 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
                           <div style={{ fontSize: '0.9rem', color: '#374151' }}>{alerta.eventos} detectados</div>
                         </div>
                       )}
-                      {alerta.diferencia !== undefined && (
-                        <div>
-                          <strong style={{ color: colorConfig.text, fontSize: '0.8rem' }}>Diferencia:</strong>
-                          <div style={{ fontSize: '0.9rem', color: '#374151' }}>
-                            {alerta.tipo === 'peso' ? `${alerta.diferencia}g` : `${Number(alerta.diferencia).toFixed(1)}°`}
-                          </div>
-                        </div>
-                      )}
-                      {alerta.incremento && (
-                        <div>
-                          <strong style={{ color: colorConfig.text, fontSize: '0.8rem' }}>Incremento:</strong>
-                          <div style={{ fontSize: '0.9rem', color: '#374151' }}>+{Number(alerta.incremento).toFixed(1)}kg</div>
-                        </div>
-                      )}
                     </div>
 
-                    {/* Acciones recomendadas */}
-                    <div>
-                      <h5 style={{
-                        margin: '0 0 8px 0',
+                    {/* Botón para expandir sugerencias */}
+                    <button
+                      onClick={() => toggleAlertaExpansion(alerta.id)}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        background: `linear-gradient(135deg, ${colorConfig.border} 0%, ${colorConfig.text} 100%)`,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
                         fontSize: '0.9rem',
-                        fontWeight: '700',
-                        color: colorConfig.text,
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        marginBottom: isExpanded ? '16px' : '0',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '6px'
+                        justifyContent: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      {isExpanded ? '▼' : '▶'} Ver Acciones Recomendadas
+                    </button>
+
+                    {/* Sugerencias expandidas */}
+                    {isExpanded && sugerenciasArray.length > 0 && (
+                      <div style={{
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        padding: '16px',
+                        borderRadius: '12px',
+                        border: `1px solid ${colorConfig.border}`
                       }}>
-                        🎯 Acciones Recomendadas:
-                      </h5>
-                      <ul style={{
-                        margin: 0,
-                        paddingLeft: '20px',
-                        color: '#374151'
-                      }}>
-                        {alerta.acciones?.map((accion, actionIndex) => (
-                          <li key={actionIndex} style={{
-                            fontSize: '0.85rem',
-                            marginBottom: '4px',
-                            lineHeight: '1.4'
-                          }}>
-                            {accion}
-                          </li>
-                        )) || (
-                          <li style={{
-                            fontSize: '0.85rem',
-                            marginBottom: '4px',
-                            lineHeight: '1.4'
-                          }}>
-                            Revisar condiciones y contactar especialista si es necesario
-                          </li>
-                        )}
-                      </ul>
-                    </div>
+                        <h5 style={{
+                          margin: '0 0 12px 0',
+                          fontSize: '1rem',
+                          fontWeight: '700',
+                          color: colorConfig.text,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}>
+                          Acciones Recomendadas:
+                        </h5>
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px'
+                        }}>
+                          {sugerenciasArray.map((sugerencia, sugIndex) => (
+                            <div key={sugIndex} style={{
+                              background: 'white',
+                              padding: '12px',
+                              borderRadius: '8px',
+                              border: '1px solid rgba(0, 0, 0, 0.1)',
+                              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
+                            }}>
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '8px'
+                              }}>
+                                <div style={{
+                                  background: colorConfig.border,
+                                  color: 'white',
+                                  borderRadius: '50%',
+                                  width: '20px',
+                                  height: '20px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '0.7rem',
+                                  fontWeight: '600',
+                                  flexShrink: 0
+                                }}>
+                                  {sugIndex + 1}
+                                </div>
+                                <div style={{
+                                  fontSize: '0.85rem',
+                                  lineHeight: '1.4',
+                                  color: '#374151'
+                                }}>
+                                  {sugerencia}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -845,7 +836,7 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
           )}
         </div>
 
-        {/* Footer con información del período */}
+        {/* Footer */}
         <div style={{
           padding: '16px 24px',
           background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
@@ -855,16 +846,12 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
           textAlign: 'center'
         }}>
           <div style={{ marginBottom: '4px' }}>
-            <strong>Período Estacional Actual:</strong> {(() => {
+            <strong>Período Estacional:</strong> {(() => {
               const mes = new Date().getMonth() + 1;
               const esInvernada = mes >= 3 && mes <= 7;
-              return esInvernada ? '❄️ Invernada (Marzo-Julio)' : '🌞 Primavera-Verano (Agosto-Febrero)';
-            })()}
-          </div>
-          <div>
-            Evaluación basada en {alertasDefinidas.length} tipos de alertas | 
-            Colmenas monitoreadas: {colmenasUsuario.length} | 
-            Sistema actualizado: {new Date().toLocaleString()}
+              return esInvernada ? 'Invernada (Marzo-Julio)' : 'Primavera-Verano (Agosto-Febrero)';
+            })()} | 
+            <strong> Sistema:</strong> {new Date().toLocaleString()}
           </div>
           {error && (
             <div style={{
@@ -875,7 +862,7 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
               color: '#dc2626',
               fontSize: '0.8rem'
             }}>
-              ⚠️ {error}
+              {error}
             </div>
           )}
         </div>
@@ -884,4 +871,4 @@ const AlertasSystem = ({ isOpen, onClose, sensorData, filteredData }) => {
   );
 };
 
-export default AlertasSystem;
+export default AlertasSystemActualizado;
