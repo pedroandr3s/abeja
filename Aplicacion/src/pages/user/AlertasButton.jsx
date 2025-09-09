@@ -14,10 +14,11 @@ const AlertasButtonCorregido = ({ sensorData, filteredData }) => {
   const [alertasCriticas, setAlertasCriticas] = useState(0);
   const [alertasAltas, setAlertasAltas] = useState(0);
   const [totalAlertas, setTotalAlertas] = useState(0);
-  const [alertasNoVistas, setAlertasNoVistas] = useState(0); // NUEVO: alertas no vistas
+  const [alertasNoVistas, setAlertasNoVistas] = useState(0);
   const [loadingAlertas, setLoadingAlertas] = useState(false);
   const [lastEvaluation, setLastEvaluation] = useState(null);
-  const [alertaReciente, setAlertaReciente] = useState(false); // NUEVO: alerta detectada recientemente
+  const [alertaReciente, setAlertaReciente] = useState(false);
+  
   // Referencias para control estricto de ejecución
   const intervalRef = useRef(null);
   const isEvaluatingRef = useRef(false);
@@ -25,11 +26,11 @@ const AlertasButtonCorregido = ({ sensorData, filteredData }) => {
   const mountedRef = useRef(true);
   const evaluationTimeoutRef = useRef(null);
 
-  // NUEVO: LocalStorage key para alertas vistas por usuario
+  // LocalStorage key para alertas vistas por usuario
   const usuarioActual = usuarios.getCurrentUser();
   const alertasVistasKey = usuarioActual ? `alertas_vistas_${usuarioActual.id}` : null;
 
-  // NUEVO: Función para obtener alertas vistas del localStorage
+  // Función para obtener alertas vistas del localStorage
   const getAlertasVistas = useCallback(() => {
     if (!alertasVistasKey) return new Set();
     try {
@@ -41,7 +42,7 @@ const AlertasButtonCorregido = ({ sensorData, filteredData }) => {
     }
   }, [alertasVistasKey]);
 
-  // NUEVO: Función para marcar alertas como vistas
+  // Función para marcar alertas como vistas
   const marcarAlertasComoVistas = useCallback((alertaIds) => {
     if (!alertasVistasKey) return;
     try {
@@ -53,13 +54,13 @@ const AlertasButtonCorregido = ({ sensorData, filteredData }) => {
       const noVistas = alertasActivas.filter(alerta => !vistas.has(alerta.id)).length;
       setAlertasNoVistas(noVistas);
       
-      console.log(`✅ Marcadas ${alertaIds.length} alertas como vistas. No vistas: ${noVistas}`);
+      console.log(`Marcadas ${alertaIds.length} alertas como vistas. No vistas: ${noVistas}`);
     } catch (error) {
       console.error('Error marcando alertas como vistas:', error);
     }
   }, [alertasVistasKey, alertasActivas, getAlertasVistas]);
 
-  // NUEVO: Función para calcular alertas no vistas
+  // Función para calcular alertas no vistas
   const calcularAlertasNoVistas = useCallback((alertas) => {
     if (!alertasVistasKey || !alertas.length) return alertas.length;
     
@@ -85,16 +86,6 @@ const AlertasButtonCorregido = ({ sensorData, filteredData }) => {
         clearTimeout(evaluationTimeoutRef.current);
         evaluationTimeoutRef.current = null;
       }
-      // Detectar nuevas alertas no vistas
-if (noVistas > 0 && alertasNoVistas === 0) {
-  // Nueva alerta detectada
-  setAlertaReciente(true);
-  console.log('🚨 ¡Alerta detectada!');
-  // Volver a estado normal después de 5 segundos si el usuario no abre el modal
-  setTimeout(() => {
-    setAlertaReciente(false);
-  }, 5000);
-}
 
       // Reset de flags
       isEvaluatingRef.current = false;
@@ -105,30 +96,29 @@ if (noVistas > 0 && alertasNoVistas === 0) {
   const evaluarAlertasUsuario = useCallback(async () => {
     // Verificaciones de seguridad ANTES de proceder
     if (!mountedRef.current) {
-      console.log('🛑 Componente desmontado, cancelando evaluación');
+      console.log('Componente desmontado, cancelando evaluación');
       return;
     }
-    
 
     if (!usuarioActual) {
-      console.log('🛑 No hay usuario actual');
+      console.log('No hay usuario actual');
       return;
     }
 
     if (isEvaluatingRef.current) {
-      console.log('🛑 Ya hay una evaluación en curso, cancelando');
+      console.log('Ya hay una evaluación en curso, cancelando');
       return;
     }
 
     if (loadingAlertas) {
-      console.log('🛑 Ya está cargando alertas, cancelando');
+      console.log('Ya está cargando alertas, cancelando');
       return;
     }
 
     // Debounce más permisivo - mínimo 5 segundos entre evaluaciones para detección rápida
     const ahora = Date.now();
     if (ahora - lastEvaluationTimeRef.current < 5000) {
-      console.log(`🛑 Evaluación muy reciente (${Math.round((ahora - lastEvaluationTimeRef.current) / 1000)}s), cancelando`);
+      console.log(`Evaluación muy reciente (${Math.round((ahora - lastEvaluationTimeRef.current) / 1000)}s), cancelando`);
       return;
     }
 
@@ -141,7 +131,7 @@ if (noVistas > 0 && alertasNoVistas === 0) {
       if (!mountedRef.current) return;
       setLoadingAlertas(true);
       
-      console.log(`🔔 Evaluando alertas para usuario: ${usuarioActual.id} (${new Date().toLocaleTimeString()})`);
+      console.log(`Evaluando alertas para usuario: ${usuarioActual.id} (${new Date().toLocaleTimeString()})`);
 
       // Usar la API con timeout
       const response = await Promise.race([
@@ -177,34 +167,33 @@ if (noVistas > 0 && alertasNoVistas === 0) {
           if (prioridad === 'CRÍTICA') criticas++;
           else if (prioridad === 'ALTA') altas++;
         });
-// Detectar nuevas alertas no vistas
-if (noVistas > 0 && alertasNoVistas === 0) {
-  setAlertaReciente(true);
-  console.log('🚨 ¡Alerta detectada!');
-  setTimeout(() => setAlertaReciente(false), 5000);
-}
 
-        // NUEVO: Calcular alertas no vistas
+        // Calcular alertas no vistas
         const noVistas = calcularAlertasNoVistas(todasLasAlertas);
+
+        // Detectar nuevas alertas no vistas
+        if (noVistas > 0 && alertasNoVistas === 0) {
+          setAlertaReciente(true);
+          console.log('¡Alerta detectada!');
+          setTimeout(() => setAlertaReciente(false), 5000);
+        }
 
         // Actualizar estado solo si hay cambios y el componente sigue montado
         if (mountedRef.current) {
-          console.log(`✅ Alertas encontradas: ${todasLasAlertas.length} total (${criticas} críticas, ${altas} altas, ${noVistas} no vistas)`);
+          console.log(`Alertas encontradas: ${todasLasAlertas.length} total (${criticas} críticas, ${altas} altas, ${noVistas} no vistas)`);
           
           setAlertasActivas(todasLasAlertas);
           setAlertasCriticas(criticas);
           setAlertasAltas(altas);
           setTotalAlertas(todasLasAlertas.length);
-          setAlertasNoVistas(noVistas); // NUEVO
+          setAlertasNoVistas(noVistas);
           setLastEvaluation(new Date());
         }
       } else {
-        console.log('❌ La evaluación no fue exitosa:', response);
-        // En caso de error, mantener estado actual pero quitar loading
+        console.log('La evaluación no fue exitosa:', response);
       }
     } catch (error) {
-      console.error('❌ Error evaluando alertas del usuario:', error);
-      // No actualizar estado en caso de error
+      console.error('Error evaluando alertas del usuario:', error);
     } finally {
       // Liberar flags SIEMPRE, incluso si el componente se desmontó
       isEvaluatingRef.current = false;
@@ -214,7 +203,7 @@ if (noVistas > 0 && alertasNoVistas === 0) {
         setLoadingAlertas(false);
       }
     }
-  }, [usuarioActual, alertas, helpers, loadingAlertas, calcularAlertasNoVistas]);
+  }, [usuarioActual, alertas, helpers, loadingAlertas, calcularAlertasNoVistas, alertasNoVistas]);
 
   // Configurar evaluación inicial con delay
   useEffect(() => {
@@ -251,12 +240,12 @@ if (noVistas > 0 && alertasNoVistas === 0) {
       // Crear nuevo intervalo solo si no existe uno
       intervalRef.current = setInterval(() => {
         if (mountedRef.current && !isEvaluatingRef.current) {
-          console.log('⏰ Intervalo automático de alertas (cada 30 segundos)');
+          console.log('Intervalo automático de alertas (cada 30 segundos)');
           evaluarAlertasUsuario();
         }
       }, 30000); // Aumentado a 30 segundos para reducir carga
       
-      console.log('✅ Intervalo de alertas configurado para', usuarioActual.id);
+      console.log('Intervalo de alertas configurado para', usuarioActual.id);
     }
     
     // Cleanup específico para este useEffect
@@ -268,33 +257,33 @@ if (noVistas > 0 && alertasNoVistas === 0) {
     };
   }, [usuarioActual?.id, evaluarAlertasUsuario]);
 
-  // Determinar el estado del botón (CORREGIDO)
+  // Determinar el estado del botón
   const getButtonState = useCallback(() => {
     if (alertaReciente) {
-  return {
-    color: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)', // rojo alerta
-    shadow: '0 4px 14px rgba(220, 38, 38, 0.4)',
-    animation: 'pulse 2s infinite',
-    text: '🚨 ¡Alerta detectada!'
-  };
-}
+      return {
+        color: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)', // rojo alerta
+        shadow: '0 4px 14px rgba(220, 38, 38, 0.4)',
+        animation: 'pulse 2s infinite',
+        text: '¡Alerta detectada!'
+      };
+    }
 
     if (loadingAlertas) {
       return {
         color: 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)',
         shadow: '0 4px 14px rgba(156, 163, 175, 0.3)',
         animation: 'none',
-        text: '⏳ Evaluando...'
+        text: 'Evaluando...'
       };
     }
 
-    // CORREGIDO: Usar alertasNoVistas en lugar de totalAlertas para determinar el color
+    // Usar alertasNoVistas en lugar de totalAlertas para determinar el color
     if (alertasCriticas > 0 && alertasNoVistas > 0) {
       return {
         color: 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
         shadow: '0 4px 14px rgba(220, 38, 38, 0.4)',
         animation: 'pulse 2s infinite',
-        text: `🚨 Alertas (${totalAlertas})`
+        text: `Alertas (${totalAlertas})`
       };
     }
 
@@ -303,27 +292,28 @@ if (noVistas > 0 && alertasNoVistas === 0) {
         color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
         shadow: '0 4px 14px rgba(245, 158, 11, 0.4)',
         animation: 'none',
-        text: `⚠️ Alertas (${totalAlertas})`
+        text: `Alertas (${totalAlertas})`
       };
     }
 
-    // CORREGIDO: Verde cuando no hay alertas no vistas (aunque haya alertas totales)
+    // Verde cuando no hay alertas no vistas (aunque haya alertas totales)
     return {
       color: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
       shadow: '0 4px 14px rgba(16, 185, 129, 0.3)',
       animation: 'none',
-      text: totalAlertas > 0 ? `✅ Alertas Vistas (${totalAlertas})` : ' Alertas'
+      text: totalAlertas > 0 ? `Alertas Vistas (${totalAlertas})` : 'Alertas'
     };
-  }, [loadingAlertas, alertasCriticas, alertasAltas, totalAlertas, alertasNoVistas]);
+  }, [loadingAlertas, alertasCriticas, alertasAltas, totalAlertas, alertasNoVistas, alertaReciente]);
 
   // Handler del click del botón con marcado como vistas
   const handleButtonClick = useCallback(() => {
     if (!loadingAlertas && mountedRef.current) {
       setShowAlertas(true);
+      
       // Al usuario abrir el modal y ver alertas
-setAlertaReciente(false); // Vuelve a verde
+      setAlertaReciente(false); // Vuelve a verde
 
-      // NUEVO: Marcar todas las alertas actuales como vistas al abrir el modal
+      // Marcar todas las alertas actuales como vistas al abrir el modal
       if (alertasActivas.length > 0) {
         const alertaIds = alertasActivas.map(alerta => alerta.id);
         marcarAlertasComoVistas(alertaIds);
@@ -416,7 +406,7 @@ setAlertaReciente(false); // Vuelve a verde
           {buttonState.text}
         </span>
 
-        {/* CORREGIDO: Indicador solo para alertas NO VISTAS */}
+        {/* Indicador solo para alertas NO VISTAS */}
         {alertasNoVistas > 0 && !loadingAlertas && (
           <div style={{
             position: 'absolute',
