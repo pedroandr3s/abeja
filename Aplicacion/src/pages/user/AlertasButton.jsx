@@ -3,7 +3,7 @@
 // Archivo: frontend/components/AlertasButton.js - VERSIÓN FUNCIONAL
 // =====================================================
 
-import React, { useState, useEffect, useRef, useCallback,noVistas } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useApi } from '../../context/ApiContext';
 import AlertasSystemActualizado from './AlertasSystem';
 
