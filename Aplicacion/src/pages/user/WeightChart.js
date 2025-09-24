@@ -13,36 +13,32 @@ import {
 const WeightChart = ({ filteredData, ensureDate }) => {
   const isMobile = window.innerWidth <= 768;
 
-  // Funciones de formato
+  // Funciones de redondeo (igual que interno)
+  const roundWeight = (weight) => {
+    if (weight === null || weight === undefined || isNaN(weight)) return weight;
+    return Math.round(weight * 1000) / 1000; // Redondea a 3 decimales
+  };
+
+  // Funciones de formato (sin segundos, igual que interno)
   const formatDateTime = (fecha) => {
-    try {
-      const date = ensureDate(fecha);
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
-      
-      return `${day}/${month} ${hours}:${minutes}:${seconds}`;
-    } catch (error) {
-      return 'Fecha inválida';
-    }
+    const date = ensureDate(fecha);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    return `${day}/${month} ${hours}:${minutes}`;
   };
 
   const formatFullDateTime = (fecha) => {
-    try {
-      const date = ensureDate(fecha);
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
-      
-      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-    } catch (error) {
-      return 'Fecha inválida';
-    }
+    const date = ensureDate(fecha);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
   };
 
   // Procesar datos de peso para Recharts
@@ -64,7 +60,7 @@ const WeightChart = ({ filteredData, ensureDate }) => {
         .map(d => ({
           fecha: formatDateTime(d.fecha),
           fechaCompleta: formatFullDateTime(d.fecha),
-          peso: Number(d.peso) / 1000, // Convertir a kg
+          peso: roundWeight(Number(d.peso) / 1000), // Convertir a kg y redondear
           nodo_id: d.nodo_id || 'N/A',
           timestamp: ensureDate(d.fecha).getTime()
         }));
@@ -76,7 +72,7 @@ const WeightChart = ({ filteredData, ensureDate }) => {
     }
   };
 
-  // Custom tooltip para modo oscuro
+  // Custom tooltip con tema naranja (igual que interno)
   const CustomTooltip = ({ active, payload, label }) => {
     if (!active || !payload || payload.length === 0) return null;
 
@@ -85,18 +81,20 @@ const WeightChart = ({ filteredData, ensureDate }) => {
 
     return (
       <div style={{
-        backgroundColor: '#1f2937',
+        background: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(10px)',
         padding: '12px',
-        border: '1px solid #4b5563',
-        borderRadius: '8px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+        border: '2px solid rgba(255, 193, 7, 0.6)',
+        borderRadius: '12px',
+        boxShadow: '0 8px 32px rgba(255, 143, 0, 0.3)',
         fontSize: '14px'
       }}>
         <p style={{ 
-          color: '#e5e7eb', 
+          color: '#1a1a1a', 
           fontSize: '12px', 
           fontWeight: '600', 
-          margin: '0 0 8px 0' 
+          margin: '0 0 8px 0',
+          textShadow: '0 1px 2px rgba(255,255,255,0.3)'
         }}>
           {data.fechaCompleta || label}
         </p>
@@ -111,15 +109,16 @@ const WeightChart = ({ filteredData, ensureDate }) => {
               width: '12px', 
               height: '12px', 
               borderRadius: '50%',
-              backgroundColor: '#f59e0b'
+              backgroundColor: '#f59e0b',
+              boxShadow: '0 0 6px #f59e0b'
             }}
           />
-          <span style={{ color: '#f9fafb', fontSize: '13px' }}>
+          <span style={{ color: '#1a1a1a', fontSize: '13px', fontWeight: '500' }}>
             Peso: <strong>{payload[0].value?.toFixed(3)} kg</strong>
           </span>
         </div>
         {data.nodo_id && (
-          <p style={{ color: '#d1d5db', fontSize: '11px', margin: '8px 0 0 0' }}>
+          <p style={{ color: '#6b7280', fontSize: '11px', margin: '8px 0 0 0' }}>
             Nodo: {data.nodo_id.length > 8 ? data.nodo_id.substring(0, 8) + '...' : data.nodo_id}
           </p>
         )}
@@ -143,18 +142,29 @@ const WeightChart = ({ filteredData, ensureDate }) => {
   if (!hasData) {
     return (
       <div style={{
-        background: 'linear-gradient(135deg, #1f2937 0%, #111827 50%, #0f172a 100%)',
-        padding: '24px',
-        borderRadius: '16px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+        background: 'linear-gradient(135deg, #ffc107 0%, #ff8f00 25%, #ffb300 50%, #fff59d 100%)',
+        backdropFilter: 'blur(15px)',
+        padding: '32px',
+        borderRadius: '20px',
+        boxShadow: '0 8px 32px rgba(255, 143, 0, 0.3)',
         textAlign: 'center',
-        border: '1px solid rgba(55, 65, 81, 0.8)',
-        color: '#e5e7eb'
+        border: '2px solid rgba(255, 193, 7, 0.4)'
       }}>
-        <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '700' }}>
-          📊 Peso de la Colmena
+        <h3 style={{ 
+          margin: 0, 
+          color: '#1a1a1a',
+          fontSize: '1.5rem',
+          fontWeight: '700',
+          textShadow: '0 1px 2px rgba(255,255,255,0.3)'
+        }}>
+          ⚖️ Peso de la Colmena
         </h3>
-        <p style={{ color: '#9ca3af', margin: '16px 0 0 0' }}>
+        <p style={{ 
+          color: '#2d2d2d', 
+          margin: '20px 0 0 0',
+          fontSize: '1.1rem',
+          fontWeight: '500'
+        }}>
           No hay datos de peso para mostrar en el período seleccionado
         </p>
       </div>
@@ -179,88 +189,101 @@ const WeightChart = ({ filteredData, ensureDate }) => {
 
     return (
       <div style={{
-        background: 'linear-gradient(135deg, #1f2937 0%, #111827 50%, #0f172a 100%)',
-        padding: '20px',
-        borderRadius: '12px',
-        border: '1px solid rgba(55, 65, 81, 0.8)',
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-        marginTop: '16px'
+        background: 'rgba(255, 255, 255, 0.15)',
+        backdropFilter: 'blur(15px)',
+        padding: '24px',
+        borderRadius: '16px',
+        border: '2px solid rgba(255, 255, 255, 0.3)',
+        boxShadow: '0 8px 24px rgba(255, 143, 0, 0.2)',
+        marginTop: '20px'
       }}>
-        <h4 style={{
-          margin: '0 0 16px 0',
-          fontSize: '1.1rem',
-          fontWeight: '600',
-          color: '#f9fafb',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '12px', 
+          marginBottom: '20px',
+          flexWrap: 'wrap'
         }}>
-          📊 Historial de Peso
-          <span style={{
-            fontSize: '0.8rem',
-            fontWeight: '500',
-            color: '#d1d5db',
-            backgroundColor: 'rgba(55, 65, 81, 0.5)',
-            padding: '2px 8px',
-            borderRadius: '12px',
-            border: '1px solid rgba(75, 85, 99, 0.5)'
+          <h4 style={{
+            margin: 0,
+            fontSize: '1.2rem',
+            fontWeight: '700',
+            color: '#1a1a1a',
+            textShadow: '0 1px 2px rgba(255,255,255,0.3)'
           }}>
-            {sortedData.length} registros más recientes
+            📊 Historial de Peso
+          </h4>
+          <span style={{
+            fontSize: '12px',
+            fontWeight: '500',
+            color: '#1a1a1a',
+            backgroundColor: 'rgba(255, 255, 255, 0.3)',
+            padding: '4px 12px',
+            borderRadius: '16px',
+            border: '1px solid rgba(255, 255, 255, 0.4)'
+          }}>
+            {sortedData.length} registros
           </span>
-        </h4>
+        </div>
         
         <div style={{ 
           overflowX: 'auto', 
           maxHeight: '400px', 
           overflowY: 'auto',
           borderRadius: '12px',
-          border: '1px solid rgba(55, 65, 81, 0.6)'
+          border: '2px solid rgba(255, 255, 255, 0.3)',
+          background: 'rgba(255, 255, 255, 0.1)'
         }}>
           <table style={{
             width: '100%',
             borderCollapse: 'collapse',
-            fontSize: '0.9rem'
+            fontSize: '14px'
           }}>
             <thead style={{ 
               position: 'sticky', 
               top: 0, 
-              backgroundColor: '#374151', 
-              zIndex: 1 
+              background: 'rgba(255, 193, 7, 0.4)',
+              backdropFilter: 'blur(10px)',
+              zIndex: 1
             }}>
               <tr>
                 <th style={{ 
-                  padding: '12px 8px', 
+                  padding: '12px', 
                   textAlign: 'left', 
                   fontWeight: '600', 
-                  color: '#f9fafb', 
-                  borderBottom: '2px solid #4b5563' 
+                  color: '#1a1a1a',
+                  borderBottom: '2px solid rgba(255, 193, 7, 0.6)',
+                  textShadow: '0 1px 1px rgba(255,255,255,0.3)'
                 }}>
                   Fecha/Hora
                 </th>
                 <th style={{ 
-                  padding: '12px 8px', 
+                  padding: '12px', 
                   textAlign: 'left', 
                   fontWeight: '600', 
-                  color: '#f9fafb', 
-                  borderBottom: '2px solid #4b5563' 
+                  color: '#1a1a1a',
+                  borderBottom: '2px solid rgba(255, 193, 7, 0.6)',
+                  textShadow: '0 1px 1px rgba(255,255,255,0.3)'
                 }}>
                   Peso (kg)
                 </th>
                 <th style={{ 
-                  padding: '12px 8px', 
+                  padding: '12px', 
                   textAlign: 'left', 
                   fontWeight: '600', 
-                  color: '#f9fafb', 
-                  borderBottom: '2px solid #4b5563' 
+                  color: '#1a1a1a',
+                  borderBottom: '2px solid rgba(255, 193, 7, 0.6)',
+                  textShadow: '0 1px 1px rgba(255,255,255,0.3)'
                 }}>
                   Variación
                 </th>
                 <th style={{ 
-                  padding: '12px 8px', 
+                  padding: '12px', 
                   textAlign: 'left', 
                   fontWeight: '600', 
-                  color: '#f9fafb', 
-                  borderBottom: '2px solid #4b5563' 
+                  color: '#1a1a1a',
+                  borderBottom: '2px solid rgba(255, 193, 7, 0.6)',
+                  textShadow: '0 1px 1px rgba(255,255,255,0.3)'
                 }}>
                   Nodo
                 </th>
@@ -273,37 +296,38 @@ const WeightChart = ({ filteredData, ensureDate }) => {
                 
                 return (
                   <tr key={index} style={{
-                    borderBottom: '1px solid rgba(55, 65, 81, 0.5)',
-                    backgroundColor: index % 2 === 0 ? 'rgba(31, 41, 55, 0.3)' : 'rgba(17, 24, 39, 0.3)'
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+                    backgroundColor: index % 2 === 0 ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)'
                   }}>
-                    <td style={{ padding: '10px 8px', color: '#d1d5db' }}>
+                    <td style={{ padding: '10px 12px', color: '#2d2d2d', fontWeight: '500' }}>
                       {row.fecha}
                     </td>
-                    <td style={{ padding: '10px 8px', color: '#f59e0b', fontWeight: '600' }}>
+                    <td style={{ padding: '10px 12px', color: '#1a1a1a', fontWeight: '600' }}>
                       {row.peso.toFixed(3)} kg
                     </td>
-                    <td style={{ padding: '10px 8px', fontWeight: '600' }}>
+                    <td style={{ padding: '10px 12px', fontWeight: '600' }}>
                       {index === sortedData.length - 1 ? (
-                        <span style={{ color: '#d1d5db' }}>-</span>
+                        <span style={{ color: '#2d2d2d' }}>-</span>
                       ) : (
                         <span style={{
-                          color: variacion > 0 ? '#10b981' : variacion < 0 ? '#ef4444' : '#d1d5db',
-                          backgroundColor: variacion !== 0 ? (
-                            variacion > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'
-                          ) : 'transparent',
-                          padding: '2px 6px',
-                          borderRadius: '6px',
-                          fontSize: '0.8rem'
+                          padding: '4px 8px',
+                          borderRadius: '12px',
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          color: 'white',
+                          backgroundColor: variacion > 0 ? '#10b981' : variacion < 0 ? '#ef4444' : '#6b7280',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                         }}>
                           {variacion > 0 ? '+' : ''}{variacion.toFixed(3)} kg
                         </span>
                       )}
                     </td>
                     <td style={{ 
-                      padding: '10px 8px', 
-                      color: '#d1d5db',
+                      padding: '10px 12px', 
+                      color: '#2d2d2d',
                       fontSize: '12px',
-                      fontFamily: 'monospace'
+                      fontFamily: 'monospace',
+                      fontWeight: '500'
                     }}>
                       {row.nodo_id.length > 8 ? row.nodo_id.substring(0, 8) + '...' : row.nodo_id}
                     </td>
@@ -320,24 +344,26 @@ const WeightChart = ({ filteredData, ensureDate }) => {
   return (
     <div>
       <div style={{
-        background: 'linear-gradient(135deg, #1f2937 0%, #111827 50%, #0f172a 100%)',
+        background: 'linear-gradient(135deg, #ffc107 0%, #ff8f00 25%, #ffb300 50%, #ffc107 75%, #fff59d 100%)',
+        backdropFilter: 'blur(15px)',
         padding: '24px',
-        borderRadius: '16px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.2)',
-        border: '1px solid rgba(55, 65, 81, 0.8)',
+        borderRadius: '20px',
+        boxShadow: '0 20px 50px rgba(255, 143, 0, 0.4)',
+        border: '2px solid rgba(255, 193, 7, 0.4)',
         position: 'relative',
         overflow: 'hidden'
       }}>
-        {/* Decoraciones de fondo */}
+        {/* Decoraciones */}
         <div style={{
           position: 'absolute',
           top: '-20px',
           right: '-20px',
           width: '80px',
           height: '80px',
-          background: 'linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.2))',
+          background: 'rgba(255, 255, 255, 0.2)',
           borderRadius: '50%',
-          opacity: 0.6
+          opacity: 0.6,
+          filter: 'blur(20px)'
         }} />
 
         {/* Header del gráfico */}
@@ -351,14 +377,11 @@ const WeightChart = ({ filteredData, ensureDate }) => {
         }}>
           <h3 style={{ 
             margin: 0,
-            fontSize: isMobile ? '1.1rem' : '1.25rem',
-            fontWeight: '700',
-            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
+            fontSize: isMobile ? '1.2rem' : '1.5rem',
+            fontWeight: '800',
+            color: '#1a1a1a',
             textAlign: 'center',
-            letterSpacing: '0.025em'
+            textShadow: '0 2px 4px rgba(255,255,255,0.3)'
           }}>
             ⚖️ Peso de la Colmena
           </h3>
@@ -368,13 +391,15 @@ const WeightChart = ({ filteredData, ensureDate }) => {
         <div style={{ 
           marginBottom: '16px', 
           padding: '8px', 
-          backgroundColor: 'rgba(55, 65, 81, 0.6)', 
+          background: 'rgba(255, 255, 255, 0.2)', 
+          backdropFilter: 'blur(5px)',
           borderRadius: '8px',
           fontSize: '12px',
-          color: '#d1d5db',
+          color: '#1a1a1a',
+          fontWeight: '500',
           position: 'relative',
           zIndex: 1,
-          border: '1px solid rgba(75, 85, 99, 0.5)'
+          border: '1px solid rgba(255, 255, 255, 0.3)'
         }}>
           Debug: {data.length} puntos | Peso: {pesoRange.min.toFixed(3)}kg - {pesoRange.max.toFixed(3)}kg
         </div>
@@ -386,10 +411,11 @@ const WeightChart = ({ filteredData, ensureDate }) => {
           marginBottom: '20px',
           position: 'relative',
           zIndex: 1,
-          backgroundColor: 'rgba(17, 24, 39, 0.8)',
+          background: '#ffffff',
           borderRadius: '12px',
           padding: '16px',
-          border: '1px solid rgba(55, 65, 81, 0.6)'
+          border: '2px solid rgba(255, 193, 7, 0.4)',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)'
         }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
@@ -408,11 +434,11 @@ const WeightChart = ({ filteredData, ensureDate }) => {
                 </linearGradient>
               </defs>
               
-              <CartesianGrid strokeDasharray="3 3" stroke="#4b5563" opacity={0.7} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#b8860b" opacity={0.7} />
               
               <XAxis 
                 dataKey="fecha"
-                tick={{ fontSize: 11, fill: '#d1d5db' }}
+                tick={{ fontSize: 11, fill: '#1a1a1a', fontWeight: '500' }}
                 angle={-45}
                 textAnchor="end"
                 height={80}
@@ -464,50 +490,51 @@ const WeightChart = ({ filteredData, ensureDate }) => {
           gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(6, 1fr)',
           gap: '12px',
           padding: '16px',
-          background: 'rgba(55, 65, 81, 0.5)',
+          background: 'rgba(255, 255, 255, 0.2)',
+          backdropFilter: 'blur(5px)',
           borderRadius: '12px',
-          border: '1px solid rgba(75, 85, 99, 0.5)',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
           marginBottom: '16px',
           position: 'relative',
           zIndex: 1
         }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '4px' }}>Actual</div>
-            <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#f59e0b' }}>
+            <div style={{ fontSize: '0.75rem', color: '#1a1a1a', marginBottom: '4px', fontWeight: '600' }}>Actual</div>
+            <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1a1a1a' }}>
               {pesoActual.toFixed(3)} kg
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '4px' }}>Variación</div>
+            <div style={{ fontSize: '0.75rem', color: '#1a1a1a', marginBottom: '4px', fontWeight: '600' }}>Variación</div>
             <div style={{ 
               fontSize: '0.9rem', 
               fontWeight: '600', 
-              color: variacionPeso > 0 ? '#10b981' : variacionPeso < 0 ? '#ef4444' : '#9ca3af' 
+              color: variacionPeso > 0 ? '#10b981' : variacionPeso < 0 ? '#ef4444' : '#1a1a1a' 
             }}>
               {variacionPeso > 0 ? '+' : ''}{variacionPeso.toFixed(3)} kg
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '4px' }}>Promedio</div>
-            <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#d1d5db' }}>
+            <div style={{ fontSize: '0.75rem', color: '#1a1a1a', marginBottom: '4px', fontWeight: '600' }}>Promedio</div>
+            <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1a1a1a' }}>
               {pesoPromedio.toFixed(3)} kg
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '4px' }}>Máximo</div>
+            <div style={{ fontSize: '0.75rem', color: '#1a1a1a', marginBottom: '4px', fontWeight: '600' }}>Máximo</div>
             <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#10b981' }}>
               {pesoMaximo.toFixed(3)} kg
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '4px' }}>Mínimo</div>
+            <div style={{ fontSize: '0.75rem', color: '#1a1a1a', marginBottom: '4px', fontWeight: '600' }}>Mínimo</div>
             <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#ef4444' }}>
               {pesoMinimo.toFixed(3)} kg
             </div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginBottom: '4px' }}>Lecturas</div>
-            <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#d1d5db' }}>
+            <div style={{ fontSize: '0.75rem', color: '#1a1a1a', marginBottom: '4px', fontWeight: '600' }}>Lecturas</div>
+            <div style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1a1a1a' }}>
               {data.length}
             </div>
           </div>

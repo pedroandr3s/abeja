@@ -425,341 +425,576 @@ const UserDashboard = () => {
   const dataForComponents = aggregatedData.length > 0 ? aggregatedData : filteredData;
 
   return (
-    <div style={{ 
-      padding: isMobile ? '16px' : '24px',
-      maxWidth: '100%',
-      overflow: 'hidden',
-      background: '#184036',
-      minHeight: '100vh'
+    <div style={{
+      minHeight: '100vh',
+      background: `
+        radial-gradient(circle at 20% 80%, rgba(255, 215, 0, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 193, 7, 0.25) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(255, 235, 59, 0.2) 0%, transparent 50%),
+        linear-gradient(135deg, #ffc107 0%, #ff8f00 25%, #ffb300 50%, #ffc107 75%, #fff59d 100%)
+      `,
+      position: 'relative',
+      overflow: 'hidden'
     }}>
-      {/* Header */}
+      {/* Liquid Glass Effect Overlays */}
       <div style={{
-        display: 'flex',
-        flexDirection: isMobile ? 'column' : 'row',
-        justifyContent: 'space-between',
-        alignItems: isMobile ? 'flex-start' : 'center',
-        marginBottom: '32px',
-        gap: isMobile ? '20px' : '0',
-        background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-        padding: '24px',
-        borderRadius: '20px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1)',
-        border: '1px solid rgba(226, 232, 240, 0.8)'
+        position: 'absolute',
+        top: '10%',
+        left: '15%',
+        width: '200px',
+        height: '200px',
+        background: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: '50%',
+        filter: 'blur(40px)',
+        animation: 'float1 6s ease-in-out infinite',
+        zIndex: 0
+      }} />
+      
+      <div style={{
+        position: 'absolute',
+        top: '60%',
+        right: '20%',
+        width: '150px',
+        height: '150px',
+        background: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: '50%',
+        filter: 'blur(35px)',
+        animation: 'float2 8s ease-in-out infinite',
+        zIndex: 0
+      }} />
+      
+      <div style={{
+        position: 'absolute',
+        bottom: '20%',
+        left: '25%',
+        width: '120px',
+        height: '120px',
+        background: 'rgba(255, 215, 0, 0.15)',
+        borderRadius: '50%',
+        filter: 'blur(30px)',
+        animation: 'float3 7s ease-in-out infinite',
+        zIndex: 0
+      }} />
+
+      {/* Glass overlay effect */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: `
+          linear-gradient(45deg, 
+            rgba(255, 255, 255, 0.05) 0%, 
+            transparent 25%, 
+            rgba(255, 255, 255, 0.03) 50%, 
+            transparent 75%, 
+            rgba(255, 255, 255, 0.05) 100%
+          )
+        `,
+        backdropFilter: 'blur(1px)',
+        zIndex: 0
+      }} />
+
+      {/* Main content container */}
+      <div style={{
+        padding: isMobile ? '16px' : '24px',
+        maxWidth: '100%',
+        overflow: 'hidden',
+        position: 'relative',
+        zIndex: 1
       }}>
-        <div>
-          <h1 style={{ 
-            margin: 0, 
-            fontSize: isMobile ? '1.75rem' : '2.5rem',
-            fontWeight: '800',
-            background: 'linear-gradient(135deg, #1f2937 0%, #4b5563 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-            lineHeight: '1.2',
-            letterSpacing: '-0.025em'
-          }}>
-            SmartBee Dashboard
-          </h1>
-          {/* Indicador de tipo de agregación y colmenas */}
-          <p style={{
-            margin: '8px 0 0 0',
-            fontSize: '0.9rem',
-            color: '#6b7280',
-            fontWeight: '500'
-          }}>
-            {getAggregationInfo(timeFilter, dataForComponents, customDateRange)}
-            {selectedColmenas.length > 0 && (
-              <span style={{
-                marginLeft: '12px',
-                padding: '2px 8px',
-                backgroundColor: '#f3f4f6',
-                borderRadius: '12px',
-                fontSize: '0.75rem',
-                fontWeight: '600',
-                color: '#374151'
-              }}>
-                🏠 {selectedColmenas.length} colmena{selectedColmenas.length !== 1 ? 's' : ''}
-              </span>
-            )}
-            {dataForComponents.length > 0 && dataForComponents[0]?.isAggregated && (
-              <span style={{
-                marginLeft: '8px',
-                padding: '2px 8px',
-                backgroundColor: '#f3f4f6',
-                borderRadius: '12px',
-                fontSize: '0.75rem',
-                fontWeight: '600',
-                color: '#374151'
-              }}>
-                📊 PROMEDIADO
-              </span>
-            )}
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <button 
-            style={{
-              padding: isMobile ? '12px 20px' : '16px 24px',
-              background: isLoading || isLoadingData 
-                ? 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)'
-                : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              fontSize: isMobile ? '0.9rem' : '1rem',
-              fontWeight: '600',
-              cursor: isLoading || isLoadingData ? 'not-allowed' : 'pointer',
-              whiteSpace: 'nowrap',
-              boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
-              transition: 'all 0.3s ease',
-              transform: isLoading || isLoadingData ? 'scale(0.95)' : 'scale(1)',
-              letterSpacing: '0.025em'
-            }}
-            onClick={handleRefresh}
-            disabled={isLoading || isLoadingData}
-          >
-            {isLoadingData ? '⏳ Actualizando...' : '🔄 Actualizar Datos'}
-          </button>
-          <AlertasButton 
-            sensorData={sensorData}
-            filteredData={dataForComponents}
-          />
-        </div>
-      </div>
-
-      {/* Loading State */}
-      {isLoading ? (
-        <Loading />
-      ) : (
-        <>
-          {/* NUEVO: Selector de Colmenas */}
-          {userColmenas.length > 1 && (
-            <div style={{
-              background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-              padding: '24px',
-              borderRadius: '20px',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1)',
-              border: '1px solid rgba(226, 232, 240, 0.8)',
-              marginBottom: '32px'
+        {/* Header */}
+        <div style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: 'space-between',
+          alignItems: isMobile ? 'flex-start' : 'center',
+          marginBottom: '32px',
+          gap: isMobile ? '20px' : '0',
+          background: 'rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(15px)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          padding: '24px',
+          borderRadius: '20px',
+          boxShadow: `
+            0 8px 32px rgba(0, 0, 0, 0.1),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2)
+          `
+        }}>
+          <div>
+            <h1 style={{ 
+              margin: 0, 
+              fontSize: isMobile ? '1.75rem' : '2.5rem',
+              fontWeight: '800',
+              color: '#1a1a1a',
+              textShadow: '0 2px 4px rgba(255,255,255,0.3)',
+              letterSpacing: '1px',
+              lineHeight: '1.2'
             }}>
-              <div style={{
-                display: 'flex',
-                flexDirection: isMobile ? 'column' : 'row',
-                alignItems: isMobile ? 'flex-start' : 'center',
-                justifyContent: 'space-between',
-                marginBottom: '20px',
-                gap: isMobile ? '16px' : '0'
-              }}>
-                <h3 style={{
-                  margin: 0,
-                  fontSize: '1.25rem',
-                  fontWeight: '700',
-                  color: '#1f2937'
+              🍯 SmartBee Dashboard
+            </h1>
+            {/* Indicador de tipo de agregación y colmenas */}
+            <p style={{
+              margin: '8px 0 0 0',
+              fontSize: '0.9rem',
+              color: '#000000ff',
+              fontWeight: '500',
+              textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+            }}>
+              {getAggregationInfo(timeFilter, dataForComponents, customDateRange)}
+              {selectedColmenas.length > 0 && (
+                <span style={{
+                  marginLeft: '12px',
+                  padding: '4px 12px',
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  borderRadius: '16px',
+                  fontSize: '0.75rem',
+                  fontWeight: '600',
+                  color: '#b8860b',
+                  border: '1px solid rgba(255, 255, 255, 0.2)'
                 }}>
-                  🏠 Seleccionar Colmenas ({selectedColmenas.length}/{userColmenas.length})
-                </h3>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => handleSelectAllColmenas(true)}
-                    style={{
-                      padding: '8px 16px',
-                      backgroundColor: '#10b981',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontSize: '0.875rem',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    ✅ Todas
-                  </button>
-                  <button
-                    onClick={() => handleSelectAllColmenas(false)}
-                    style={{
-                      padding: '8px 16px',
-                      backgroundColor: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontSize: '0.875rem',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    ❌ Ninguna
-                  </button>
-                </div>
-              </div>
+                  🏠 {selectedColmenas.length} colmena{selectedColmenas.length !== 1 ? 's' : ''}
+                </span>
+              )}
+              {dataForComponents.length > 0 && dataForComponents[0]?.isAggregated && (
+                <span style={{
+                  marginLeft: '8px',
+                  padding: '4px 12px',
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  borderRadius: '16px',
+                  fontSize: '0.75rem',
+                  fontWeight: '600',
+                  color: '#b8860b',
+                  border: '1px solid rgba(255, 255, 255, 0.2)'
+                }}>
+                  📊 PROMEDIADO
+                </span>
+              )}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button 
+              style={{
+                padding: isMobile ? '12px 20px' : '16px 24px',
+                background: isLoading || isLoadingData 
+                  ? 'rgba(156, 163, 175, 0.2)'
+                  : 'rgba(255, 255, 255, 0.15)',
+                backdropFilter: 'blur(10px)',
+                color: isLoading || isLoadingData ? '#9ca3af' : '#b8860b',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: '16px',
+                fontSize: isMobile ? '0.9rem' : '1rem',
+                fontWeight: '600',
+                cursor: isLoading || isLoadingData ? 'not-allowed' : 'pointer',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+                transition: 'all 0.3s ease',
+                letterSpacing: '0.025em'
+              }}
+              onClick={handleRefresh}
+              disabled={isLoading || isLoadingData}
+              onMouseEnter={(e) => {
+                if (!isLoading && !isLoadingData) {
+                  e.target.style.background = 'rgba(255, 255, 255, 0.25)';
+                  e.target.style.transform = 'translateY(-2px)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isLoading && !isLoadingData) {
+                  e.target.style.background = 'rgba(255, 255, 255, 0.15)';
+                  e.target.style.transform = 'translateY(0)';
+                }
+              }}
+            >
+              {isLoadingData ? '⏳ Actualizando...' : '🔄 Actualizar Datos'}
+            </button>
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(10px)',
+              borderRadius: '16px',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.1)'
+            }}>
+              <AlertasButton 
+                sensorData={sensorData}
+                filteredData={dataForComponents}
+              />
+            </div>
+          </div>
+        </div>
 
+        {/* Loading State */}
+        {isLoading ? (
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(15px)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            borderRadius: '20px',
+            padding: '4rem',
+            textAlign: 'center',
+            color: '#b8860b',
+            fontSize: '1.2rem',
+            fontWeight: '600'
+          }}>
+            <Loading />
+          </div>
+        ) : (
+          <>
+            {/* NUEVO: Selector de Colmenas */}
+            {userColmenas.length > 1 && (
               <div style={{
-                display: 'grid',
-                gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
-                gap: '16px'
+                background: 'rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(15px)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                padding: '24px',
+                borderRadius: '20px',
+                boxShadow: `
+                  0 8px 32px rgba(0, 0, 0, 0.1),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.2)
+                `,
+                marginBottom: '32px'
               }}>
-                {userColmenas.map(colmena => {
-                  const isSelected = selectedColmenas.includes(colmena.id);
-                  const colmenaDataCount = sensorData.filter(d => d.colmena_id === colmena.id).length;
-                  
-                  return (
-                    <div
-                      key={colmena.id}
-                      onClick={() => handleColmenaSelectionChange(colmena.id, !isSelected)}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: isMobile ? 'column' : 'row',
+                  alignItems: isMobile ? 'flex-start' : 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '20px',
+                  gap: isMobile ? '16px' : '0'
+                }}>
+                  <h3 style={{
+                    margin: 0,
+                    fontSize: '1.25rem',
+                    fontWeight: '700',
+                    color: '#b8860b',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                  }}>
+                    🏠 Seleccionar Colmenas ({selectedColmenas.length}/{userColmenas.length})
+                  </h3>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => handleSelectAllColmenas(true)}
                       style={{
-                        padding: '16px',
+                        padding: '8px 16px',
+                        background: 'rgba(16, 185, 129, 0.2)',
+                        backdropFilter: 'blur(10px)',
+                        color: '#059669',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
                         borderRadius: '12px',
-                        border: isSelected ? '2px solid #3b82f6' : '2px solid #e5e7eb',
-                        backgroundColor: isSelected ? '#eff6ff' : '#ffffff',
+                        fontSize: '0.875rem',
+                        fontWeight: '600',
                         cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        boxShadow: isSelected ? '0 4px 12px rgba(59, 130, 246, 0.15)' : '0 1px 3px rgba(0, 0, 0, 0.1)'
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.background = 'rgba(16, 185, 129, 0.3)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.background = 'rgba(16, 185, 129, 0.2)';
                       }}
                     >
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        marginBottom: '8px'
-                      }}>
-                        <h4 style={{
-                          margin: 0,
-                          fontSize: '1rem',
-                          fontWeight: '600',
-                          color: isSelected ? '#1d4ed8' : '#374151'
-                        }}>
-                          🏠 Colmena #{colmena.id}
-                        </h4>
+                      ✅ Todas
+                    </button>
+                    <button
+                      onClick={() => handleSelectAllColmenas(false)}
+                      style={{
+                        padding: '8px 16px',
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        backdropFilter: 'blur(10px)',
+                        color: '#dc2626',
+                        border: '1px solid rgba(239, 68, 68, 0.3)',
+                        borderRadius: '12px',
+                        fontSize: '0.875rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.background = 'rgba(239, 68, 68, 0.3)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.background = 'rgba(239, 68, 68, 0.2)';
+                      }}
+                    >
+                      ❌ Ninguna
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gap: '16px'
+                }}>
+                  {userColmenas.map(colmena => {
+                    const isSelected = selectedColmenas.includes(colmena.id);
+                    const colmenaDataCount = sensorData.filter(d => d.colmena_id === colmena.id).length;
+                    
+                    return (
+                      <div
+                        key={colmena.id}
+                        onClick={() => handleColmenaSelectionChange(colmena.id, !isSelected)}
+                        style={{
+                          padding: '16px',
+                          borderRadius: '16px',
+                          border: isSelected 
+                            ? '2px solid rgba(255, 215, 0, 0.6)' 
+                            : '2px solid rgba(255, 255, 255, 0.2)',
+                          background: isSelected 
+                            ? 'rgba(255, 215, 0, 0.1)' 
+                            : 'rgba(255, 255, 255, 0.05)',
+                          backdropFilter: 'blur(10px)',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease',
+                          boxShadow: isSelected 
+                            ? '0 8px 24px rgba(255, 215, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2)' 
+                            : '0 4px 12px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = isSelected 
+                            ? '0 12px 32px rgba(255, 215, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3)'
+                            : '0 8px 20px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = isSelected 
+                            ? '0 8px 24px rgba(255, 215, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                            : '0 4px 12px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)';
+                        }}
+                      >
                         <div style={{
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '4px',
-                          backgroundColor: isSelected ? '#3b82f6' : '#e5e7eb',
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'white',
-                          fontSize: '12px'
+                          justifyContent: 'space-between',
+                          marginBottom: '8px'
                         }}>
-                          {isSelected ? '✓' : ''}
+                          <h4 style={{
+                            margin: 0,
+                            fontSize: '1rem',
+                            fontWeight: '600',
+                            color: isSelected ? '#b8860b' : '#8b6914',
+                            textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                          }}>
+                            🏠 Colmena #{colmena.id}
+                          </h4>
+                          <div style={{
+                            width: '24px',
+                            height: '24px',
+                            borderRadius: '6px',
+                            background: isSelected 
+                              ? 'linear-gradient(135deg, #ffd700, #ffb300)' 
+                              : 'rgba(255, 255, 255, 0.2)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: isSelected ? '#b8860b' : '#8b6914',
+                            fontSize: '14px',
+                            fontWeight: '700',
+                            boxShadow: isSelected ? '0 2px 8px rgba(255, 215, 0, 0.3)' : 'none'
+                          }}>
+                            {isSelected ? '✓' : ''}
+                          </div>
+                        </div>
+                        <p style={{
+                          margin: '0 0 8px 0',
+                          fontSize: '0.875rem',
+                          color: '#8b6914',
+                          textShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                        }}>
+                          {colmena.descripcion || 'Sin descripción'}
+                        </p>
+                        <div style={{
+                          fontSize: '0.75rem',
+                          color: '#a16207',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontWeight: '500'
+                        }}>
+                          <span>📊 {colmenaDataCount} registros</span>
+                          <span>{colmenaDataCount > 0 ? '🟢 Activa' : '🔴 Sin datos'}</span>
                         </div>
                       </div>
-                      <p style={{
-                        margin: '0 0 8px 0',
-                        fontSize: '0.875rem',
-                        color: '#6b7280'
-                      }}>
-                        {colmena.descripcion || 'Sin descripción'}
-                      </p>
-                      <div style={{
-                        fontSize: '0.75rem',
-                        color: '#9ca3af',
-                        display: 'flex',
-                        justifyContent: 'space-between'
-                      }}>
-                        <span>📊 {colmenaDataCount} registros</span>
-                        <span>🟢 {colmenaDataCount > 0 ? 'Activa' : 'Sin datos'}</span>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Componente de Filtros de Tiempo */}
-          <TimeFilters
-            timeFilter={timeFilter}
-            timeFilters={timeFilters}
-            rawData={sensorData}
-            filteredData={filteredData}
-            aggregatedData={aggregatedData}
-            onTimeFilterChange={handleTimeFilterChange}
-            onCustomDateRange={handleCustomDateRange}
-          />
-          
-          {/* Grid de estadísticas - MODIFICADO: Mostrar info de colmenas seleccionadas */}
-          <StatsGrid 
-            userColmenas={userColmenas.filter(c => selectedColmenas.includes(c.id))}
-            filteredData={dataForComponents}
-          />
-
-          {/* Gráficos */}
-          {dataForComponents.length === 0 ? (
+            {/* Componente de Filtros de Tiempo */}
             <div style={{
-              background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-              padding: isMobile ? '32px 20px' : '40px 32px',
+              background: 'rgba(255, 255, 255, 0.08)',
+              backdropFilter: 'blur(15px)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
               borderRadius: '20px',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08)',
-              marginBottom: '24px',
-              textAlign: 'center',
-              border: '1px solid rgba(226, 232, 240, 0.8)'
-            }}>
-              <div style={{ 
-                fontSize: isMobile ? '4rem' : '5rem', 
-                marginBottom: '24px',
-                filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))'
-              }}>
-                📊
-              </div>
-              <h3 style={{ 
-                fontSize: isMobile ? '1.25rem' : '1.5rem', 
-                marginBottom: '12px',
-                fontWeight: '700',
-                background: 'linear-gradient(135deg, #1f2937 0%, #4b5563 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text'
-              }}>
-                {selectedColmenas.length === 0 ? 'Selecciona al menos una colmena' : 'Sin Datos para el Período Seleccionado'}
-              </h3>
-              <p style={{ 
-                fontSize: isMobile ? '1rem' : '1.1rem', 
-                color: '#6b7280',
-                margin: '0 0 16px 0',
-                fontWeight: '500'
-              }}>
-                {selectedColmenas.length === 0 ? 
-                  'Debes seleccionar al menos una colmena para ver los datos.' :
-                  'No se encontraron registros de sensores para el filtro aplicado.'
-                }
-              </p>
-            </div>
-          ) : (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '32px',
+              boxShadow: `
+                0 8px 32px rgba(0, 0, 0, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2)
+              `,
               marginBottom: '32px'
             }}>
-             
-
-              {/* Gráfico de Temperatura y Humedad Interna */}
-              <TemperatureHumidityInternalChart 
-                filteredData={dataForComponents}
-                ensureDate={ensureDate}
-                isAggregated={dataForComponents[0]?.isAggregated || false}
-                aggregationType={dataForComponents[0]?.aggregationType || 'individual'}
-              />
-
-              {/* Gráfico de Temperatura y Humedad Externa */}
-              <TemperatureHumidityExternalChart 
-                filteredData={dataForComponents}
-                ensureDate={ensureDate}
-                isAggregated={dataForComponents[0]?.isAggregated || false}
-                aggregationType={dataForComponents[0]?.aggregationType || 'individual'}
-              />
-
-              {/* Gráfico de Peso */}
-              <WeightChart 
-                filteredData={dataForComponents}
-                ensureDate={ensureDate}
-                isAggregated={dataForComponents[0]?.isAggregated || false}
-                aggregationType={dataForComponents[0]?.aggregationType || 'individual'}
+              <TimeFilters
+                timeFilter={timeFilter}
+                timeFilters={timeFilters}
+                rawData={sensorData}
+                filteredData={filteredData}
+                aggregatedData={aggregatedData}
+                onTimeFilterChange={handleTimeFilterChange}
+                onCustomDateRange={handleCustomDateRange}
               />
             </div>
-          )}
-        </>
-      )}
+            
+            {/* Grid de estadísticas - MODIFICADO: Mostrar info de colmenas seleccionadas */}
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              backdropFilter: 'blur(15px)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '20px',
+              boxShadow: `
+                0 8px 32px rgba(0, 0, 0, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2)
+              `,
+              marginBottom: '32px'
+            }}>
+              <StatsGrid 
+                userColmenas={userColmenas.filter(c => selectedColmenas.includes(c.id))}
+                filteredData={dataForComponents}
+              />
+            </div>
+
+            {/* Gráficos */}
+            {dataForComponents.length === 0 ? (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(15px)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                padding: isMobile ? '32px 20px' : '40px 32px',
+                borderRadius: '20px',
+                boxShadow: `
+                  0 8px 32px rgba(0, 0, 0, 0.1),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.2)
+                `,
+                marginBottom: '24px',
+                textAlign: 'center'
+              }}>
+                <div style={{ 
+                  fontSize: isMobile ? '4rem' : '5rem', 
+                  marginBottom: '24px',
+                  filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))'
+                }}>
+                  📊
+                </div>
+                <h3 style={{ 
+                  fontSize: isMobile ? '1.25rem' : '1.5rem', 
+                  marginBottom: '12px',
+                  fontWeight: '700',
+                  color: '#b8860b',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}>
+                  {selectedColmenas.length === 0 ? 'Selecciona al menos una colmena' : 'Sin Datos para el Período Seleccionado'}
+                </h3>
+                <p style={{ 
+                  fontSize: isMobile ? '1rem' : '1.1rem', 
+                  color: '#8b6914',
+                  margin: '0 0 16px 0',
+                  fontWeight: '500',
+                  textShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}>
+                  {selectedColmenas.length === 0 ? 
+                    'Debes seleccionar al menos una colmena para ver los datos.' :
+                    'No se encontraron registros de sensores para el filtro aplicado.'
+                  }
+                </p>
+              </div>
+            ) : (
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '32px',
+                marginBottom: '32px'
+              }}>
+                {/* Gráfico de Temperatura y Humedad Interna */}
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(15px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '20px',
+                  boxShadow: `
+                    0 8px 32px rgba(0, 0, 0, 0.1),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.1)
+                  `,
+                  overflow: 'hidden'
+                }}>
+                  <TemperatureHumidityInternalChart 
+                    filteredData={dataForComponents}
+                    ensureDate={ensureDate}
+                    isAggregated={dataForComponents[0]?.isAggregated || false}
+                    aggregationType={dataForComponents[0]?.aggregationType || 'individual'}
+                  />
+                </div>
+
+                {/* Gráfico de Temperatura y Humedad Externa */}
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(15px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '20px',
+                  boxShadow: `
+                    0 8px 32px rgba(0, 0, 0, 0.1),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.1)
+                  `,
+                  overflow: 'hidden'
+                }}>
+                  <TemperatureHumidityExternalChart 
+                    filteredData={dataForComponents}
+                    ensureDate={ensureDate}
+                    isAggregated={dataForComponents[0]?.isAggregated || false}
+                    aggregationType={dataForComponents[0]?.aggregationType || 'individual'}
+                  />
+                </div>
+
+                {/* Gráfico de Peso */}
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(15px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '20px',
+                  boxShadow: `
+                    0 8px 32px rgba(0, 0, 0, 0.1),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.1)
+                  `,
+                  overflow: 'hidden'
+                }}>
+                  <WeightChart 
+                    filteredData={dataForComponents}
+                    ensureDate={ensureDate}
+                    isAggregated={dataForComponents[0]?.isAggregated || false}
+                    aggregationType={dataForComponents[0]?.aggregationType || 'individual'}
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes float1 {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-20px) rotate(180deg); }
+        }
+        
+        @keyframes float2 {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-15px) rotate(-180deg); }
+        }
+        
+        @keyframes float3 {
+          0%, 100% { transform: translateY(0px) rotate(0deg); }
+          50% { transform: translateY(-25px) rotate(180deg); }
+        }
+      `}</style>
     </div>
   );
 };

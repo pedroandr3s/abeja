@@ -435,36 +435,7 @@ const AlertasButtonCorregido = ({ sensorData, filteredData }) => {
         )}
       </button>
 
-      {/* Información de debugging (solo en desarrollo) */}
-      {process.env.NODE_ENV === 'development' && usuarioActual && (
-        <div style={{
-          position: 'absolute',
-          top: '100%',
-          right: '0',
-          marginTop: '8px',
-          background: 'rgba(0, 0, 0, 0.9)',
-          color: 'white',
-          padding: '8px',
-          borderRadius: '8px',
-          fontSize: '0.7rem',
-          zIndex: 1000,
-          display: showAlertas ? 'none' : 'block',
-          minWidth: '200px',
-          pointerEvents: 'none'
-        }}>
-          <div><strong>Usuario:</strong> {usuarioActual.id}</div>
-          <div><strong>Total Alertas:</strong> {totalAlertas}</div>
-          <div><strong>No Vistas:</strong> {alertasNoVistas}</div>
-          <div><strong>Críticas:</strong> {alertasCriticas} | <strong>Altas:</strong> {alertasAltas}</div>
-          <div><strong>Estado:</strong> {loadingAlertas ? 'Evaluando...' : 'Listo'}</div>
-          <div><strong>Evaluando:</strong> {isEvaluatingRef.current ? 'Sí' : 'No'}</div>
-          {lastEvaluation && (
-            <div><strong>Última Eval:</strong> {lastEvaluation.toLocaleTimeString()}</div>
-          )}
-          <div><strong>Intervalo:</strong> {intervalRef.current ? 'Activo' : 'Inactivo'}</div>
-          <div><strong>Montado:</strong> {mountedRef.current ? 'Sí' : 'No'}</div>
-        </div>
-      )}
+    
 
       {/* Modal del sistema de alertas */}
       {showAlertas && (

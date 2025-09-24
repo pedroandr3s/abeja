@@ -268,15 +268,24 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
 
       <style >{`
         .navbar {
-          background: #184036;
-          border-bottom: 1px solid #e5e7eb;
+          background: linear-gradient(135deg, 
+            #ffc107 0%, 
+            #ff8f00 25%, 
+            #ffb300 50%, 
+            #ffc107 75%, 
+            #fff59d 100%
+          );
+          backdrop-filter: blur(10px);
+          border-bottom: 2px solid rgba(255, 193, 7, 0.3);
           padding: 0.75rem 1rem;
           position: fixed;
           top: 0;
           left: 0;
           right: 0;
           z-index: 50;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+          box-shadow: 
+            0 4px 20px rgba(255, 143, 0, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.3);
         }
 
         .navbar-content {
@@ -294,18 +303,20 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
 
         .mobile-menu-button {
           display: none;
-          background: none;
-          border: none;
+          background: rgba(255, 255, 255, 0.2);
+          backdrop-filter: blur(5px);
+          border: 1px solid rgba(255, 255, 255, 0.3);
           padding: 0.5rem;
           cursor: pointer;
-          border-radius: 0.375rem;
-          color: #6b7280;
+          border-radius: 12px;
+          color: #1a1a1a;
           transition: all 0.2s ease;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         .mobile-menu-button:hover {
-          background-color: #f3f4f6;
-          color: #374151;
+          background: rgba(255, 255, 255, 0.3);
+          transform: translateY(-1px);
         }
 
         .hamburger-icon {
@@ -315,16 +326,19 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
 
         .navbar-title h1 {
           font-size: 1.25rem;
-          font-weight: 600;
-          color: #ffffffff;
+          font-weight: 700;
+          color: #1a1a1a;
           margin: 0;
           margin-bottom: 0.125rem;
+          text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
         }
 
         .navbar-subtitle {
           font-size: 0.875rem;
-          color: #ffffffff;
+          color: #2d2d2d;
           margin: 0;
+          font-weight: 500;
+          text-shadow: 0 1px 1px rgba(255, 255, 255, 0.2);
         }
 
         .navbar-right {
@@ -341,8 +355,9 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
 
         .time-display {
           font-size: 0.875rem;
-          font-weight: 500;
-          color: #ffffffff;
+          font-weight: 600;
+          color: #1a1a1a;
+          text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
         }
 
         .connection-status {
@@ -350,25 +365,30 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
           align-items: center;
           gap: 0.5rem;
           padding: 0.5rem 1rem;
-          border-radius: 0.375rem;
-          border: 1px solid;
+          border-radius: 16px;
+          border: 2px solid;
           transition: all 0.2s ease;
+          backdrop-filter: blur(10px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         .connection-status.online {
-          background-color: #ecfdf5;
-          border-color: #d1fae5;
+          background: rgba(236, 253, 245, 0.8);
+          border-color: rgba(16, 185, 129, 0.4);
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
         }
 
         .connection-status.offline {
-          background-color: #fef2f2;
-          border-color: #fee2e2;
+          background: rgba(254, 242, 242, 0.8);
+          border-color: rgba(239, 68, 68, 0.4);
+          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
         }
 
         .status-indicator {
-          width: 6px;
-          height: 6px;
+          width: 8px;
+          height: 8px;
           border-radius: 50%;
+          box-shadow: 0 0 8px currentColor;
         }
 
         .connection-status.online .status-indicator {
@@ -381,7 +401,7 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
 
         .status-text {
           font-size: 0.875rem;
-          font-weight: 500;
+          font-weight: 600;
         }
 
         .connection-status.online .status-text {
@@ -397,19 +417,22 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
           align-items: center;
           gap: 0.5rem;
           padding: 0.5rem 1rem;
-          background-color: #f3f4f6;
-          border: 1px solid #d1d5db;
-          border-radius: 0.375rem;
-          color: #374151;
+          background: rgba(255, 255, 255, 0.2);
+          backdrop-filter: blur(10px);
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-radius: 16px;
+          color: #1a1a1a;
           font-size: 0.875rem;
-          font-weight: 500;
+          font-weight: 600;
           cursor: pointer;
           transition: all 0.2s ease;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         .refresh-button:hover:not(.loading) {
-          background-color: #e5e7eb;
-          border-color: #9ca3af;
+          background: rgba(255, 255, 255, 0.3);
+          transform: translateY(-1px);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
         }
 
         .refresh-button.loading {
@@ -436,9 +459,11 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
           align-items: center;
           gap: 0.75rem;
           padding: 0.5rem;
-          border-radius: 0.5rem;
-          background-color: #f9fafb;
-          border: 1px solid #e5e7eb;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.2);
+          backdrop-filter: blur(10px);
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         .user-avatar {
@@ -452,6 +477,7 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
           font-size: 0.875rem;
           font-weight: 600;
           flex-shrink: 0;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .user-details {
@@ -462,53 +488,61 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
 
         .user-name {
           font-size: 0.875rem;
-          font-weight: 500;
-          color: #1f2937;
+          font-weight: 600;
+          color: #1a1a1a;
+          text-shadow: 0 1px 1px rgba(255, 255, 255, 0.2);
         }
 
         .user-role {
           font-size: 0.75rem;
-          font-weight: 500;
+          font-weight: 600;
         }
 
         .logout-button {
-          background: none;
-          border: none;
+          background: rgba(254, 242, 242, 0.8);
+          backdrop-filter: blur(5px);
+          border: 2px solid rgba(239, 68, 68, 0.3);
           cursor: pointer;
           padding: 0.5rem;
-          border-radius: 0.375rem;
-          color: #6b7280;
+          border-radius: 12px;
+          color: #dc2626;
           font-size: 1.125rem;
           display: flex;
           align-items: center;
           justify-content: center;
           transition: all 0.2s ease;
           flex-shrink: 0;
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
         }
 
         .logout-button:hover {
-          background-color: #fee2e2;
-          color: #dc2626;
-          transform: scale(1.05);
+          background: rgba(254, 226, 226, 0.9);
+          border-color: rgba(239, 68, 68, 0.5);
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
         }
 
         .session-indicator {
           font-size: 0.75rem;
           color: #059669;
-          background-color: #ecfdf5;
+          background: rgba(236, 253, 245, 0.8);
+          backdrop-filter: blur(5px);
           padding: 0.25rem 0.5rem;
-          border-radius: 0.25rem;
-          border: 1px solid #d1fae5;
+          border-radius: 12px;
+          border: 2px solid rgba(16, 185, 129, 0.3);
           display: flex;
           align-items: center;
           gap: 0.25rem;
+          font-weight: 600;
+          box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
         }
 
         .session-dot {
-          width: 6px;
-          height: 6px;
+          width: 8px;
+          height: 8px;
           border-radius: 50%;
           background-color: #10b981;
+          box-shadow: 0 0 6px #10b981;
         }
 
         /* Menú móvil */
@@ -518,27 +552,37 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
           left: 0;
           right: 0;
           bottom: 0;
-          background-color: rgba(0, 0, 0, 0.5);
+          background: rgba(0, 0, 0, 0.5);
+          backdrop-filter: blur(4px);
           z-index: 100;
           display: flex;
           justify-content: flex-end;
         }
 
         .mobile-menu {
-          background-color: #ffffff;
+          background: linear-gradient(135deg, 
+            #fff9c4 0%, 
+            #fef08a 25%, 
+            #fde047 50%, 
+            #facc15 75%, 
+            #f59e0b 100%
+          );
+          backdrop-filter: blur(15px);
           width: 100%;
           max-width: 20rem;
-          box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+          box-shadow: -8px 0 32px rgba(245, 158, 11, 0.3);
           display: flex;
           flex-direction: column;
+          border-left: 2px solid rgba(255, 193, 7, 0.3);
         }
 
         .mobile-menu-header {
           padding: 1rem;
-          border-bottom: 1px solid #e5e7eb;
+          border-bottom: 2px solid rgba(255, 193, 7, 0.3);
           display: flex;
           justify-content: space-between;
           align-items: center;
+          background: rgba(255, 255, 255, 0.1);
         }
 
         .mobile-user-info {
@@ -557,33 +601,36 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
           color: white;
           font-size: 1rem;
           font-weight: 600;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .mobile-user-name {
           font-size: 1rem;
-          font-weight: 600;
-          color: #1f2937;
+          font-weight: 700;
+          color: #1a1a1a;
+          text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
         }
 
         .mobile-user-role {
           font-size: 0.875rem;
-          font-weight: 500;
+          font-weight: 600;
         }
 
         .mobile-menu-close {
-          background: none;
-          border: none;
+          background: rgba(255, 255, 255, 0.2);
+          border: 2px solid rgba(255, 255, 255, 0.3);
           font-size: 1.5rem;
-          color: #6b7280;
+          color: #1a1a1a;
           cursor: pointer;
-          padding: 0.25rem;
-          border-radius: 0.25rem;
+          padding: 0.25rem 0.5rem;
+          border-radius: 12px;
           transition: all 0.2s ease;
+          font-weight: 700;
         }
 
         .mobile-menu-close:hover {
-          background-color: #f3f4f6;
-          color: #374151;
+          background: rgba(255, 255, 255, 0.3);
+          transform: scale(1.1);
         }
 
         .mobile-menu-content {
@@ -596,15 +643,18 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
 
         .mobile-connection-status {
           padding: 1rem;
-          border-radius: 0.5rem;
-          background-color: #f8fafc;
-          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.2);
+          backdrop-filter: blur(10px);
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         .connection-indicator {
           display: flex;
           align-items: center;
           gap: 0.5rem;
+          font-weight: 600;
         }
 
         .connection-indicator.online {
@@ -616,9 +666,10 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
         }
 
         .status-dot {
-          width: 8px;
-          height: 8px;
+          width: 10px;
+          height: 10px;
           border-radius: 50%;
+          box-shadow: 0 0 8px currentColor;
         }
 
         .connection-indicator.online .status-dot {
@@ -631,18 +682,24 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
 
         .mobile-time {
           text-align: center;
+          padding: 1rem;
+          background: rgba(255, 255, 255, 0.15);
+          border-radius: 16px;
+          border: 2px solid rgba(255, 255, 255, 0.2);
         }
 
         .time-label {
           font-size: 0.875rem;
-          color: #6b7280;
+          color: #2d2d2d;
           margin-bottom: 0.25rem;
+          font-weight: 600;
         }
 
         .time-value {
           font-size: 0.875rem;
-          font-weight: 500;
-          color: #1f2937;
+          font-weight: 700;
+          color: #1a1a1a;
+          text-shadow: 0 1px 2px rgba(255, 255, 255, 0.3);
         }
 
         .mobile-actions {
@@ -656,30 +713,33 @@ const Navbar = ({ currentUser, onLogout, roleConfig, onMobileMenuToggle }) => {
           align-items: center;
           gap: 0.75rem;
           padding: 0.75rem 1rem;
-          border: 1px solid #d1d5db;
-          border-radius: 0.5rem;
-          background-color: #ffffff;
-          color: #374151;
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          border-radius: 16px;
+          background: rgba(255, 255, 255, 0.2);
+          backdrop-filter: blur(10px);
+          color: #1a1a1a;
           font-size: 0.875rem;
-          font-weight: 500;
+          font-weight: 600;
           cursor: pointer;
           transition: all 0.2s ease;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
 
         .mobile-action-button:hover:not(.loading) {
-          background-color: #f9fafb;
-          border-color: #9ca3af;
+          background: rgba(255, 255, 255, 0.3);
+          transform: translateY(-1px);
+          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
         }
 
         .mobile-action-button.logout {
-          background-color: #fef2f2;
-          border-color: #fecaca;
+          background: rgba(254, 242, 242, 0.8);
+          border-color: rgba(239, 68, 68, 0.4);
           color: #dc2626;
         }
 
         .mobile-action-button.logout:hover {
-          background-color: #fee2e2;
-          border-color: #fca5a5;
+          background: rgba(254, 226, 226, 0.9);
+          border-color: rgba(239, 68, 68, 0.6);
         }
 
         .mobile-action-button.loading {
