@@ -1,5 +1,5 @@
 // =====================================================
-// ALERTAS SYSTEM CORREGIDO - SIN LLAMADAS MÚLTIPLES AL CARGAR
+// ALERTAS SYSTEM CORREGIDO - MODAL PANTALLA COMPLETA
 // Archivo: frontend/components/AlertasSystemActualizado.js
 // =====================================================
 
@@ -386,27 +386,28 @@ const AlertasSystemActualizado = ({ isOpen, onClose, sensorData, filteredData })
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      zIndex: 1000,
+      backgroundColor: 'rgba(0, 0, 0, 0.75)',
+      zIndex: 10000, // Z-index extremadamente alto
       display: 'flex',
       alignItems: isMobile ? 'flex-start' : 'center',
       justifyContent: 'center',
-      padding: isMobile ? '8px' : isTablet ? '16px' : '24px',
+      padding: isMobile ? '0' : isTablet ? '16px' : '24px',
       overflow: 'auto'
     }}>
       <div style={{
         background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
-        borderRadius: isMobile ? '12px' : '20px',
+        borderRadius: isMobile ? '0' : '20px',
         width: '100%',
         maxWidth: isMobile ? '100%' : isTablet ? '95%' : '1200px',
         maxHeight: isMobile ? '100vh' : '90vh',
         minHeight: isMobile ? '100vh' : 'auto',
         overflow: 'hidden',
-        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
-        border: '1px solid rgba(226, 232, 240, 0.8)',
-        margin: isMobile ? '0' : 'auto',
+        boxShadow: '0 25px 75px rgba(0, 0, 0, 0.25)',
+        border: isMobile ? 'none' : '1px solid rgba(226, 232, 240, 0.8)',
+        margin: 'auto',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        position: 'relative'
       }}>
         {/* Header del Modal */}
         <div style={{
@@ -450,7 +451,7 @@ const AlertasSystemActualizado = ({ isOpen, onClose, sensorData, filteredData })
                 alignSelf: isMobile ? 'flex-end' : 'auto'
               }}
             >
-              Cerrar
+              ✕ Cerrar
             </button>
           </div>
 
@@ -564,11 +565,12 @@ const AlertasSystemActualizado = ({ isOpen, onClose, sensorData, filteredData })
           </div>
         </div>
 
-        {/* Contenido de Alertas */}
+        {/* Contenido de Alertas - CON SCROLL INDEPENDIENTE */}
         <div style={{
-          padding: '24px',
-          maxHeight: '60vh',
-          overflowY: 'auto'
+          padding: isMobile ? '16px' : '24px',
+          flex: '1',
+          overflowY: 'auto',
+          overflowX: 'hidden'
         }}>
           {loadingAlertas ? (
             <div style={{
@@ -781,7 +783,7 @@ const AlertasSystemActualizado = ({ isOpen, onClose, sensorData, filteredData })
                           alignItems: 'center',
                           gap: '6px'
                         }}>
-                          Acciones Recomendadas:
+                          💡 Acciones Recomendadas:
                         </h5>
                         <div style={{
                           display: 'flex',
@@ -843,7 +845,8 @@ const AlertasSystemActualizado = ({ isOpen, onClose, sensorData, filteredData })
           borderTop: '1px solid rgba(226, 232, 240, 0.8)',
           fontSize: '0.8rem',
           color: '#6b7280',
-          textAlign: 'center'
+          textAlign: 'center',
+          flexShrink: 0
         }}>
           <div style={{ marginBottom: '4px' }}>
             <strong>Período Estacional:</strong> {(() => {

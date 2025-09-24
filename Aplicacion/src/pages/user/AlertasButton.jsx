@@ -1,9 +1,5 @@
-// =====================================================
-// ALERTAS BUTTON CORREGIDO - DETECTA Y MARCA COMO VISTAS
-// Archivo: frontend/components/AlertasButton.js - VERSIÓN FUNCIONAL
-// =====================================================
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useApi } from '../../context/ApiContext';
 import AlertasSystemActualizado from './AlertasSystem';
 
@@ -336,6 +332,18 @@ const AlertasButtonCorregido = ({ sensorData, filteredData }) => {
     return null;
   }
 
+  // Crear el modal como portal
+  const modalPortal = showAlertas ? createPortal(
+    <AlertasSystemActualizado
+      isOpen={showAlertas}
+      onClose={handleCloseModal}
+      sensorData={sensorData}
+      filteredData={filteredData}
+      alertasActivas={alertasActivas}
+    />,
+    document.body // CLAVE: Renderizar directamente en el body
+  ) : null;
+
   return (
     <>
       <button
@@ -435,18 +443,8 @@ const AlertasButtonCorregido = ({ sensorData, filteredData }) => {
         )}
       </button>
 
-    
-
-      {/* Modal del sistema de alertas */}
-      {showAlertas && (
-        <AlertasSystemActualizado
-          isOpen={showAlertas}
-          onClose={handleCloseModal}
-          sensorData={sensorData}
-          filteredData={filteredData}
-          alertasActivas={alertasActivas}
-        />
-      )}
+      {/* Modal renderizado como portal en el body */}
+      {modalPortal}
 
       {/* Estilos para la animación de pulso */}
       <style>
