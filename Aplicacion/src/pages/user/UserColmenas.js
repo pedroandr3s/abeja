@@ -14,7 +14,7 @@ const UnifiedDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(false);
 
-  const API_BASE = 'localhost:8080';
+  const API_BASE = 'localhost:3306';
 
   useEffect(() => {
     checkAuthentication();

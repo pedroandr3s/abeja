@@ -19,8 +19,8 @@ const getBaseURL = () => {
   }
   
   // ✅ NUEVO: Conectar directamente al servidor local en el mismo proyecto
-  // El backend estará corriendo en el puerto 8080 mientras React en 3000
-  return 'http://localhost:8080/api';
+  // El backend estará corriendo en el puerto 3306 mientras React en 3000
+  return 'http://localhost:3306/api';
 };
 
 // Configuración de axios para conectar al backend
