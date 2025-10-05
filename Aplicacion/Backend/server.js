@@ -22,7 +22,7 @@ const stationRoutes = require('./routes/stations');
 const alertasRoutes = require('./routes/alertas');
 
 const app = express();
-const PORT = process.env.PORT || 3306;
+const PORT = process.env.PORT || 3000;
 
 // Middlewares globales
 app.use(cors(corsConfig));
