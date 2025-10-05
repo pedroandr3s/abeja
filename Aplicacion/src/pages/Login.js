@@ -42,7 +42,7 @@ const Login = ({ onLoginSuccess }) => {
         setConnectionStatus('checking');
         
         // Intentar conectar directamente
-        const baseUrl = 'http://localhost:3306/api';
+        const baseUrl = 'http://localhost:3000/api';
           
         const response = await fetch(`${baseUrl}/health`);
         
@@ -195,7 +195,7 @@ const Login = ({ onLoginSuccess }) => {
       } else {
         // Fallback: petición directa
         console.log('📡 Usando fetch directo para login');
-        const baseUrl = 'http://localhost:3306/api';
+        const baseUrl = 'http://localhost:3000/api';
           
         const response = await fetch(`${baseUrl}/usuarios/login`, {
           method: 'POST',
