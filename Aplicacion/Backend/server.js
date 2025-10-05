@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 
 // Importar configuraciones y middlewares
@@ -22,7 +23,7 @@ const stationRoutes = require('./routes/stations');
 const alertasRoutes = require('./routes/alertas');
 
 const app = express();
-const PORT = process.env.PORT || 3306;
+const PORT = process.env.PORT || 3004;
 
 // Middlewares globales
 app.use(cors(corsConfig));
@@ -133,10 +134,25 @@ app.get('/api/colmenas/activas', async (req, res) => {
 });
 
 // =============================================
-// MIDDLEWARES DE MANEJO DE ERRORES
+// MIDDLEWARES DE MANEJO DE ERRORES PARA API
 // =============================================
 app.use(errorHandler);
-app.use(notFoundHandler);
+
+// =============================================
+// SERVIR ARCHIVOS ESTÁTICOS DEL FRONTEND (PRODUCCIÓN)
+// =============================================
+// Servir archivos estáticos desde la carpeta build de React
+app.use(express.static(path.join(__dirname, '../build')));
+
+// Para cualquier ruta que no sea /api/*, servir index.html del frontend
+app.get('*', (req, res) => {
+    // Si es una petición a la API que llegó hasta aquí, es un 404
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'Endpoint no encontrado' });
+    }
+    // Para todo lo demás, servir el frontend
+    res.sendFile(path.join(__dirname, '../build', 'index.html'));
+});
 
 // =============================================
 // INICIAR SERVIDOR
@@ -149,26 +165,41 @@ const startServer = async () => {
         connection.release();
         
         app.listen(PORT, () => {
-            console.log(`🚀 Servidor SmartBee ejecutándose en puerto ${PORT}`);
-            console.log(`🌐 API disponible en: http://localhost:${PORT}/api`);
-            console.log(`🗄️  Base de datos: MySQL Local (127.0.0.1:3306)`);
-            console.log(`📋 Endpoints disponibles:`);
-            console.log(`   ✅ GET  /api/health`);
-            console.log(`   ✅ POST /api/usuarios/login`);
-            console.log(`   ✅ GET  /api/usuarios`);
-            console.log(`   ✅ GET  /api/colmenas`);
-            console.log(`   ✅ GET  /api/mensajes/recientes`);
-            console.log(`   ✅ GET  /api/dashboard/stats`);
-            console.log(`   ✅ GET  /api/alertas/evaluar/:colmenaId`);
-            console.log(`   ✅ GET  /api/alertas/usuario/:usuarioId`);
-            console.log(`   ✅ GET  /api/debug/check-tables`);
+            console.log('\n' + '='.repeat(60));
+            console.log('🐝 SmartBee - Servidor Unificado');
+            console.log('='.repeat(60));
+            console.log(`🚀 Servidor ejecutándose en puerto: ${PORT}`);
+            console.log(`🌐 Frontend: http://localhost:${PORT}`);
+            console.log(`📡 API Backend: http://localhost:${PORT}/api`);
+            console.log(`🗄️  Base de Datos: MySQL (127.0.0.1:3306)`);
+            console.log('='.repeat(60));
+            console.log('📋 Endpoints API principales:');
+            console.log(`   ✅ GET  /api/health - Estado del servidor`);
+            console.log(`   ✅ POST /api/usuarios/login - Autenticación`);
+            console.log(`   ✅ GET  /api/dashboard/stats - Dashboard`);
+            console.log(`   ✅ GET  /api/colmenas - Lista de colmenas`);
+            console.log(`   ✅ GET  /api/alertas/usuario/:id - Alertas`);
+            console.log('='.repeat(60));
+            console.log('💡 Modo: PRODUCCIÓN (Sirviendo frontend y backend)');
+            console.log('💡 Tip: Para desarrollo, usa: npm run dev');
+            console.log('='.repeat(60) + '\n');
         });
     } catch (error) {
-        console.error('❌ Error conectando a MySQL local:', error.message);
+        console.error('\n❌ Error conectando a MySQL local:', error.message);
+        console.error('⚠️  El servidor continuará pero sin acceso a base de datos\n');
         
         app.listen(PORT, () => {
-            console.log(`🚀 Servidor SmartBee (modo desarrollo) en puerto ${PORT}`);
-            console.log(`⚠️  Sin conexión a base de datos`);
+            console.log('\n' + '='.repeat(60));
+            console.log('⚠️  SmartBee - Servidor sin DB');
+            console.log('='.repeat(60));
+            console.log(`🚀 Servidor ejecutándose en puerto: ${PORT}`);
+            console.log(`🌐 Frontend: http://localhost:${PORT}`);
+            console.log(`📡 API Backend: http://localhost:${PORT}/api`);
+            console.log(`❌ Base de Datos: NO CONECTADA`);
+            console.log('='.repeat(60));
+            console.log('💡 Asegúrate de que MySQL esté corriendo en puerto 3306');
+            console.log('💡 Verifica las credenciales en el archivo .env');
+            console.log('='.repeat(60) + '\n');
         });
     }
 };
