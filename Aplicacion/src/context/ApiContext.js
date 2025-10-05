@@ -18,9 +18,15 @@ const getBaseURL = () => {
     return process.env.REACT_APP_API_URL;
   }
   
-  // ✅ NUEVO: Conectar directamente al servidor local en el mismo proyecto
-  // El backend estará corriendo en el puerto 3306 mientras React en 3000
-  return 'http://localhost:3306/api';
+  // ✅ NUEVO: Conectar directamente al servidor unificado
+  // En desarrollo: frontend en puerto diferente, backend en 3004
+  // En producción: todo servido desde 3004
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:3004/api';
+  }
+  
+  // En producción, usar rutas relativas (mismo servidor)
+  return '/api';
 };
 
 // Configuración de axios para conectar al backend
@@ -112,7 +118,7 @@ export const ApiProvider = ({ children }) => {
       let errorMessage = 'Error de conexión con el servidor local';
       
       if (err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED') {
-        errorMessage = 'Backend no está ejecutándose. Asegúrate de correr: npm run backend:app';
+        errorMessage = 'Backend no está ejecutándose en puerto 3004. Asegúrate de correr: npm run backend';
       } else {
         errorMessage = err.response?.data?.message || err.message || errorMessage;
       }

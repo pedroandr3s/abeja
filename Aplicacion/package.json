@@ -36,16 +36,20 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "set PORT=3004 && react-scripts start",
+    "start": "PORT=3000 react-scripts start",
+    "start:windows": "set PORT=3000 && react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "backend": "node backend/server.js",
-    "backend:dev": "nodemon backend/server.js",
-    "backend:app": "node backend/app.js",
-    "setup-db": "node backend/scripts/setupDatabase.js",
+    "backend": "cd Backend && node server.js",
+    "backend:dev": "cd Backend && nodemon server.js",
+    "backend:app": "cd Backend && node app.js",
+    "setup-db": "cd Backend && node scripts/setupDatabase.js",
     "dev": "concurrently \"npm run start\" \"npm run backend:dev\"",
-    "dev:full": "concurrently \"npm run start\" \"npm run backend:app\""
+    "dev:windows": "concurrently \"npm run start:windows\" \"npm run backend:dev\"",
+    "dev:full": "concurrently \"npm run start\" \"npm run backend:app\"",
+    "prod": "npm run build && npm run backend",
+    "prod:start": "npm run backend"
   },
   "eslintConfig": {
     "extends": [
